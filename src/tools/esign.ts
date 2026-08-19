@@ -79,6 +79,12 @@ function flattenRecipients(r: RecipientsResponse) {
   );
 }
 
+/** Stock DocuSign templates carry a paragraph of legal boilerplate as their description. */
+function truncate(s: string | undefined, max: number): string | undefined {
+  if (!s) return undefined;
+  return s.length > max ? `${s.slice(0, max).trimEnd()}…` : s;
+}
+
 function daysAgoIso(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString();
 }
@@ -184,9 +190,16 @@ export function registerEsignTools(server: McpServer): void {
           'esign',
           { method: 'GET', path: `${ACCT}/envelopes/${args.envelope_id}/documents` },
         );
-        out.documents = (d.envelopeDocuments ?? []).map((doc) =>
-          args.verbose ? doc : pick(doc, ['documentId', 'name', 'type', 'order', 'pages'] as const),
-        );
+        out.documents = (d.envelopeDocuments ?? []).map((doc) => {
+          if (args.verbose) return doc;
+          // `pages` is one object per page with pageId/height/width/dpi -- tens of
+          // lines of noise per document. The count is the only part worth returning.
+          const pages = doc.pages as unknown[] | undefined;
+          return {
+            ...pick(doc, ['documentId', 'name', 'type', 'order'] as const),
+            ...(pages ? { pageCount: pages.length } : {}),
+          };
+        });
       }
       return ok(out);
     }),
@@ -269,16 +282,24 @@ export function registerEsignTools(server: McpServer): void {
       }>('esign', {
         method: 'GET',
         path: `${ACCT}/templates`,
-        query: { search_text: args.search_text, count: args.count, order_by: 'used' },
+        // Without include=recipients the response carries no roles at all, which
+        // made the `roles` projection below silently return [] for every template.
+        query: {
+          search_text: args.search_text,
+          count: args.count,
+          order_by: 'used',
+          include: 'recipients',
+        },
       });
       const templates = data.envelopeTemplates ?? [];
       if (args.verbose) return ok(data);
       return ok({
         total: data.totalSetSize,
         templates: templates.map((t) => ({
-          ...pick(t, ['templateId', 'name', 'description', 'shared', 'lastModified'] as const),
-          roles: ((t.recipients as RecipientsResponse | undefined)?.signers ?? []).map((s) =>
-            pick(s, ['roleName', 'recipientId', 'routingOrder'] as const),
+          ...pick(t, ['templateId', 'name', 'shared', 'lastModified'] as const),
+          description: truncate(t.description as string | undefined, 160),
+          roles: flattenRecipients((t.recipients ?? {}) as RecipientsResponse).map((r) =>
+            pick(r, ['roleName', 'recipientId', 'routingOrder', 'recipientType'] as const),
           ),
         })),
       });

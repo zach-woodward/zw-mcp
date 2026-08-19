@@ -26,9 +26,11 @@ const REDACT_PATHS = [
   '*.recipientEmail',
 ];
 
-// stdio transport must keep stdout clean for JSON-RPC, so in that mode every
-// log line goes to the file only.
-const stdioMode = process.env.ZW_MCP_TRANSPORT === 'stdio';
+// Two cases need stdout kept clean: the stdio transport (stdout IS the JSON-RPC
+// channel, so a stray log line corrupts the stream) and the CLI scripts, whose
+// output is a human-readable table. Both fall back to file-only logging.
+const quiet =
+  process.env.ZW_MCP_TRANSPORT === 'stdio' || process.env.ZW_MCP_QUIET === '1';
 
 const fileStream = destination({
   dest: path.join(LOG_DIR, 'zw-mcp.log'),
@@ -37,7 +39,7 @@ const fileStream = destination({
 });
 
 const streams: StreamEntry[] = [{ level: 'trace', stream: fileStream }];
-if (!stdioMode) {
+if (!quiet) {
   streams.push({
     level: (process.env.LOG_LEVEL as Level) ?? 'info',
     stream: process.stdout,

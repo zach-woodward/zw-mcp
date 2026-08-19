@@ -273,12 +273,13 @@ ZW MCP and every skin gets it. ZW MCP itself stays UI-free.
 
 ## 8. Per-product coverage
 
-Status as of Phase 1. Base URIs and scopes are transcribed from the verified
+Status as of Phase 1, verified against the Woodward Systems demo account
+(`b99e0abc-…`, org `4773242b-…`, base URI `https://demo.docusign.net`). Base URIs and scopes are transcribed from the verified
 tables in [`specs/BASE_PATHS.md`](../specs/BASE_PATHS.md).
 
 | API | Base URI (demo) | Scopes | Curated tools | Raw hatch | Spec source | Status |
 | --- | --- | --- | ---: | :---: | --- | --- |
-| eSignature v2.1 | `{base_uri}/restapi` | `signature` | 13 | ✅ | vendored OpenAPI | GA -- **Phase 1 done** |
+| eSignature v2.1 | `{base_uri}/restapi` | `signature` | 13 | ✅ | vendored OpenAPI | GA -- **Phase 1 verified live** |
 | Navigator | `api-d.docusign.com/v1` | `adm_store_unified_repo_read`, `models_read` | 0 | ✅ | vendored OpenAPI 3.1 | beta -- Phase 2 |
 | CLM | per-account SpringCM host | `spring_read`, `spring_write`, `content` | 0 | ✅ | hand-built (no published spec) | Phase 2, host discovery unverified |
 | Maestro (= Workflow Builder) | `api-d.docusign.com/v1` | `aow_manage` | 0 | ✅ | vendored OpenAPI 3.1 | beta -- Phase 2 |

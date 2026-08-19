@@ -12,8 +12,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/index.js",
     "stdio": "tsx src/stdio.ts",
-    "consent": "tsx scripts/consent.ts",
-    "smoke": "tsx scripts/smoke.ts",
+    "consent": "ZW_MCP_QUIET=1 tsx scripts/consent.ts",
+    "smoke": "ZW_MCP_QUIET=1 tsx scripts/smoke.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
