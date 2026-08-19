@@ -233,9 +233,17 @@ tailscale --socket=$HOME/.tailscale/tailscaled.sock status --json \
       print('certs :', d.get('CertDomains'))"
 ```
 
-**The daemon does not survive a reboot** -- it runs as a background user process,
-not a service. Relaunch the `tailscaled` line above after a restart, or add a
-launchd agent for it alongside the other two.
+`tailscaled` runs under launchd as `com.zw.tailscaled`, so it comes back after a
+reboot. The Funnel configuration itself lives in the tailscaled state directory
+and is restored when the daemon restarts -- the agent does not re-run
+`tailscale funnel`.
+
+Toggle Funnel from the admin console's **Network** tab, or from the CLI:
+
+```bash
+tailscale --socket=$HOME/.tailscale/tailscaled.sock funnel --bg 8787      # on
+tailscale --socket=$HOME/.tailscale/tailscaled.sock funnel --https=443 off # off
+```
 
 Tunnel **8787 only**. Never tunnel 8788: the admin console has no password and can
 send and void envelopes.
@@ -270,14 +278,16 @@ and prefer Serve.
 
 ## Always-on with launchd
 
-Two agents: the MCP server and the admin console. They are separate so either can
-be restarted alone.
+Three agents: the MCP server, the admin console, and the Tailscale daemon that
+provides public access. They are separate so any one can be restarted alone.
 
 ```bash
 npm run build
-cp launchd/com.zw.mcp.plist launchd/com.zw.mcp.admin.plist ~/Library/LaunchAgents/
+cp launchd/com.zw.mcp.plist launchd/com.zw.mcp.admin.plist \
+   launchd/com.zw.tailscaled.plist ~/Library/LaunchAgents/
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.zw.mcp.plist
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.zw.mcp.admin.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.zw.tailscaled.plist
 ```
 
 Verify:
@@ -324,7 +334,7 @@ npm run admin    # terminal 2 -- console on :8788
 open http://127.0.0.1:8788
 ```
 
-Four tabs:
+Five tabs:
 
 - **Status** -- server health, token expiry, granted scopes, resolved account and
   organization, plus a per-product card. "Probe every product" fires one cheap
@@ -334,8 +344,19 @@ Four tabs:
   its model-facing description and full JSON input schema.
 - **Run** -- pick any tool, edit its arguments as JSON (pre-filled from the schema
   defaults), execute it, and read the result with timing.
+- **Network** -- Tailscale state and a switch to turn public Funnel access on or
+  off. Shows whether the tailnet actually allows Funnel and whether HTTPS certs
+  are issued, because without those the underlying command hangs silently instead
+  of erroring.
 - **Next** -- phase status, open items with the action each needs, and the
   standing gotchas worth remembering.
+
+The Funnel switch lives here and **not** in the MCP tool surface on purpose. `/mcp`
+is published to the public internet while Funnel is on, so an MCP tool that
+toggled Funnel would let anyone holding the bearer token re-open the tunnel after
+it was closed, or close it and cut off every other client. The console is LAN-only
+and never funnelled, which makes it the right place to control the machine's own
+network exposure.
 
 It is a **separate app** on purpose. ZW MCP itself stays UI-free (see
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §7), and the console drives it over

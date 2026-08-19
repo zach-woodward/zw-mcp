@@ -25,13 +25,14 @@ graph LR
   end
 
   subgraph edge["Network edge"]
-    TS["Tailscale Serve<br/>private tailnet HTTPS"]
+    TS["Tailscale Funnel<br/>public HTTPS<br/>zws-mac-mini.tail9e5da0.ts.net"]
   end
 
   subgraph mini["Mac mini (launchd, always on)"]
     AUTHZ{"Bearer auth<br/>ZW_MCP_TOKEN"}
     ZW["ZW MCP<br/>com.zw.mcp :8787 /mcp"]
     ADMIN["Admin console<br/>com.zw.mcp.admin :8788<br/>separate app, LAN-bound"]
+    TSD["tailscaled<br/>com.zw.tailscaled<br/>userspace mode"]
     LOGS[("./logs")]
     DL[("./downloads")]
   end
@@ -61,6 +62,8 @@ graph LR
   TS --> AUTHZ --> ZW
   LAN["Operator browser<br/>on the LAN"] --> ADMIN
   ADMIN -->|same bearer-authed /mcp<br/>any client uses| AUTHZ
+  ADMIN -.->|enable / disable Funnel| TSD
+  TSD --- TS
   ZW --> LOGS
   ZW --> DL
   ZW -->|JWT Grant| OAUTH

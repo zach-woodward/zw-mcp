@@ -120,6 +120,7 @@
     <button id="tab-status" aria-selected="true">Status</button>
     <button id="tab-tools">Tools</button>
     <button id="tab-run">Run</button>
+    <button id="tab-network">Network</button>
     <button id="tab-next">Next</button>
   </nav>
 </header>
@@ -161,6 +162,34 @@
     <pre id="runOut">Pick a tool and press Run.</pre>
   </section>
 
+  <section id="view-network" hidden>
+    <div class="row">
+      <button class="ghost" id="netRefresh">Refresh</button>
+      <span class="muted" id="netMeta"></span>
+    </div>
+    <h2>Tailscale</h2>
+    <div class="card"><dl class="kv" id="netKv"><dt>state</dt><dd>loading…</dd></dl></div>
+
+    <h2>Public access (Funnel)</h2>
+    <div class="card">
+      <p class="meta" style="margin-top:0">
+        Funnel publishes the MCP endpoint on port <strong id="netPort">8787</strong> to the
+        public internet over HTTPS. That is what claude.ai and Claude Cowork need, because they
+        connect from Anthropic's servers rather than from your machine or LAN.
+        The admin console (port 8788) is never funnelled.
+      </p>
+      <p class="meta">
+        While Funnel is on, the ZW_MCP_TOKEN bearer is the only thing between the internet and
+        your Docusign account.
+      </p>
+      <div class="row" style="margin:14px 0 0">
+        <button class="go" id="funnelOn">Enable Funnel</button>
+        <button class="ghost" id="funnelOff">Disable Funnel</button>
+        <span class="muted" id="funnelMsg"></span>
+      </div>
+    </div>
+  </section>
+
   <section id="view-next" hidden>
     <h2>Phases</h2>
     <div class="card" id="phases"></div>
@@ -173,7 +202,7 @@
 
 <script type="module">
 const $ = (id) => document.getElementById(id);
-const views = ['status', 'tools', 'run', 'next'];
+const views = ['status', 'tools', 'run', 'network', 'next'];
 for (const v of views) {
   $(`tab-${v}`).addEventListener('click', () => {
     for (const w of views) {
@@ -324,6 +353,44 @@ $('runBtn').addEventListener('click', async () => {
   btn.disabled = false;
 });
 
+/* ---------- Network ---------- */
+async function loadNetwork() {
+  $('netMeta').textContent = 'checking…';
+  const n = await jget('/api/network');
+  const yn = (b) => (b ? 'yes' : 'no');
+  const rows = [
+    ['daemon running', yn(n.daemonRunning)],
+    ['logged in', yn(n.loggedIn)],
+    ['hostname', n.hostname ?? '—'],
+    ['HTTPS certs', yn(n.certReady)],
+    ['funnel allowed by tailnet', yn(n.funnelCapable)],
+    ['funnel enabled', n.funnelEnabled ? 'YES — publicly reachable' : 'no — private'],
+    ['public MCP URL', n.publicUrl ?? '—'],
+  ];
+  if (n.error) rows.push(['error', n.error]);
+  $('netKv').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  $('funnelOn').disabled = n.funnelEnabled;
+  $('funnelOff').disabled = !n.funnelEnabled;
+  $('netMeta').textContent = n.funnelEnabled ? 'public' : 'private';
+  return n;
+}
+async function setFunnel(enabled) {
+  $('funnelOn').disabled = true;
+  $('funnelOff').disabled = true;
+  $('funnelMsg').textContent = enabled ? 'enabling…' : 'disabling…';
+  const r = await fetch('/api/network/funnel', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  }).then((x) => x.json());
+  $('funnelMsg').innerHTML = r.error
+    ? `<span class="err-text">${r.error}</span>`
+    : enabled ? 'Funnel enabled.' : 'Funnel disabled.';
+  await loadNetwork();
+}
+$('netRefresh').addEventListener('click', loadNetwork);
+$('funnelOn').addEventListener('click', () => setFunnel(true));
+$('funnelOff').addEventListener('click', () => setFunnel(false));
+
 /* ---------- Next ---------- */
 async function loadRoadmap() {
   const r = await jget('/api/roadmap');
@@ -353,6 +420,7 @@ async function loadRoadmap() {
   $('runTool').innerHTML = tools.map((x) => `<option>${x.name}</option>`).join('');
   syncRun();
   await loadRoadmap();
+  await loadNetwork();
 })();
 </script>
 </body>

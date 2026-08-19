@@ -11,14 +11,88 @@
  * no CORS dance.
  */
 import express, { type NextFunction, type Request, type Response } from 'express';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { request } from 'undici';
 import { loadConfig } from '../src/lib/config.js';
 
+const execFileAsync = promisify(execFile);
 const cfg = loadConfig();
+
+/*
+ * Tailscale controls.
+ *
+ * These live in the admin console, NOT in the MCP tool surface, and that is a
+ * deliberate security boundary: /mcp is published on the public internet through
+ * Funnel, so an MCP tool that toggles Funnel would let anyone holding the bearer
+ * token re-open the tunnel after it had been closed -- or close it and cut off
+ * every other client. The console is LAN-only and never funnelled, which makes it
+ * the right place to control the machine's own network exposure.
+ */
+const TAILSCALE = '/opt/homebrew/bin/tailscale';
+const TS_SOCKET = path.join(os.homedir(), '.tailscale/tailscaled.sock');
+const FUNNEL_PORT = String(cfg.PORT);
+
+async function tailscale(args: string[], timeoutMs = 60_000): Promise<string> {
+  const { stdout, stderr } = await execFileAsync(
+    TAILSCALE,
+    [`--socket=${TS_SOCKET}`, ...args],
+    { timeout: timeoutMs },
+  );
+  return `${stdout}${stderr}`.trim();
+}
+
+interface NetworkState {
+  daemonRunning: boolean;
+  loggedIn: boolean;
+  hostname: string | null;
+  publicUrl: string | null;
+  funnelEnabled: boolean;
+  funnelCapable: boolean;
+  certReady: boolean;
+  error?: string;
+}
+
+async function networkState(): Promise<NetworkState> {
+  const base: NetworkState = {
+    daemonRunning: false,
+    loggedIn: false,
+    hostname: null,
+    publicUrl: null,
+    funnelEnabled: false,
+    funnelCapable: false,
+    certReady: false,
+  };
+  try {
+    const raw = await tailscale(['status', '--json'], 20_000);
+    const st = JSON.parse(raw) as {
+      Self?: { DNSName?: string; Online?: boolean; CapMap?: Record<string, unknown> };
+      CertDomains?: string[] | null;
+      BackendState?: string;
+    };
+    base.daemonRunning = true;
+    base.loggedIn = st.BackendState === 'Running';
+    // DNSName comes back with a trailing dot.
+    const dns = (st.Self?.DNSName ?? '').replace(/\.$/, '');
+    base.hostname = dns || null;
+    base.certReady = Boolean(st.CertDomains?.length);
+    base.funnelCapable = Object.keys(st.Self?.CapMap ?? {}).some((c) =>
+      c.toLowerCase().includes('funnel'),
+    );
+
+    const funnel = await tailscale(['funnel', 'status'], 20_000).catch(() => '');
+    base.funnelEnabled = /Funnel on/i.test(funnel);
+    if (base.funnelEnabled && dns) base.publicUrl = `https://${dns}/mcp`;
+  } catch (err) {
+    base.error = (err as Error).message.slice(0, 300);
+  }
+  return base;
+}
 const ADMIN_PORT = Number(process.env.ADMIN_PORT ?? 8788);
 const ADMIN_BIND = process.env.ADMIN_BIND ?? '127.0.0.1';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? '';
@@ -180,6 +254,43 @@ app.post('/api/call', async (req: Request, res: Response) => {
   }
 });
 
+app.get('/api/network', async (_req: Request, res: Response) => {
+  res.json(await networkState());
+});
+
+app.post('/api/network/funnel', async (req: Request, res: Response) => {
+  const { enabled } = req.body as { enabled?: boolean };
+  if (typeof enabled !== 'boolean') {
+    res.status(400).json({ error: 'body must be { "enabled": true | false }' });
+    return;
+  }
+  try {
+    if (enabled) {
+      const state = await networkState();
+      // Without these two the funnel command hangs silently rather than erroring,
+      // which is a miserable thing to debug from a web UI.
+      if (!state.funnelCapable) {
+        throw new Error(
+          'This tailnet has not granted the `funnel` node attribute. Add it at ' +
+            'https://login.tailscale.com/admin/acls before enabling.',
+        );
+      }
+      if (!state.certReady) {
+        throw new Error(
+          'HTTPS certificates are not enabled for this tailnet. Enable them at ' +
+            'https://login.tailscale.com/admin/dns before enabling Funnel.',
+        );
+      }
+      await tailscale(['funnel', '--bg', FUNNEL_PORT]);
+    } else {
+      await tailscale(['funnel', '--https=443', 'off']);
+    }
+    res.json({ ok: true, state: await networkState() });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message.slice(0, 500) });
+  }
+});
+
 /** Static project state the console renders: phases, known gaps, next steps. */
 app.get('/api/roadmap', (_req: Request, res: Response) => {
   res.json({
@@ -225,6 +336,8 @@ app.get('/api/roadmap', (_req: Request, res: Response) => {
       },
     ],
     notes: [
+      'Tailscale runs under launchd as com.zw.tailscaled in userspace mode (no root). Funnel config lives in the tailscaled state dir and self-restores on restart.',
+      'The Funnel toggle is in this console rather than the MCP tool surface: /mcp is public while Funnel is on, so a tool that toggled it could be used by anyone holding the bearer token.',
       'models_read (Navigator) and content (CLM) are documented scopes that this account never grants. Both are excluded; Navigator and CLM work without them.',
       'npm run scopecheck is reliable only in the negative direction -- Docusign silently ignores unknown scopes, so a pass does not prove a scope is real.',
     ],

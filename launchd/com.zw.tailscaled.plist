@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.zw.tailscaled</string>
+
+  <!-- Userspace networking needs no root, which is why this can be a LaunchAgent
+       rather than a LaunchDaemon. Funnel works fine in this mode.
+       The Funnel config itself lives in the tailscaled state directory, so it is
+       restored automatically when the daemon comes back up - this agent does not
+       need to re-run `tailscale funnel`. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/tailscaled</string>
+    <string>--tun=userspace-networking</string>
+    <string>--socket=/Users/zwmacminiai/.tailscale/tailscaled.sock</string>
+    <string>--statedir=/Users/zwmacminiai/.tailscale/state</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/zwmacminiai/.tailscale</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/zwmacminiai/dev/zw-mcp/logs/launchd.tailscaled.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/zwmacminiai/dev/zw-mcp/logs/launchd.tailscaled.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>
