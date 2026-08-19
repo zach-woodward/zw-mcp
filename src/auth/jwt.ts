@@ -49,10 +49,15 @@ let userInfo: UserInfo | null = null;
 /** Coalesces concurrent refreshes so N parallel tool calls mint one token. */
 let inFlight: Promise<TokenState> | null = null;
 
-/** The one-time consent URL for the configured integration key and scopes. */
-export function consentUrl(): string {
+/**
+ * The one-time consent URL for the configured integration key.
+ *
+ * `products` defaults to what DS_PRODUCTS enables, but can be widened to grant
+ * consent for scopes a later phase will need (see scripts/consent.ts).
+ */
+export function consentUrl(products?: readonly string[]): string {
   const cfg = loadConfig();
-  const scopes = scopesFor(cfg.products);
+  const scopes = scopesFor(products ?? cfg.products);
   const params = new URLSearchParams({
     response_type: 'code',
     scope: scopes.join(' '),
