@@ -6,3 +6,4 @@ downloads/
 *.pem
 .DS_Store
 keys/
+.oauth/

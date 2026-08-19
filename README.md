@@ -125,7 +125,49 @@ Or edit `~/Library/Application Support/Claude/claude_desktop_config.json` direct
 Settings -> Connectors -> **Add custom connector**:
 
 - **URL**: `https://zws-mac-mini.tail9e5da0.ts.net/mcp`
-- **Header**: `Authorization: Bearer <ZW_MCP_TOKEN>`
+- Leave **OAuth client ID** and **client secret** blank
+
+Claude custom connectors have **no field for a static bearer header**. They speak
+the MCP OAuth flow instead: on a 401 they read the `WWW-Authenticate` header,
+fetch the protected-resource metadata, discover the authorization server, register
+themselves dynamically, and run authorization-code + PKCE. That is why the client
+ID and secret are optional -- dynamic registration fills them in.
+
+ZW MCP implements that whole surface (see **OAuth** below). When you add the
+connector you will be sent to an approval page; paste `ZW_MCP_TOKEN` there to
+approve, and the connector receives its own OAuth token.
+
+## OAuth
+
+`src/auth/oauth.ts` is a minimal OAuth 2.1 authorization server colocated with the
+resource server, which the MCP spec explicitly permits.
+
+| Endpoint | Spec | Purpose |
+| --- | --- | --- |
+| `/.well-known/oauth-protected-resource` | RFC 9728 | Points clients at the authorization server |
+| `/.well-known/oauth-authorization-server` | RFC 8414 | Endpoint + capability discovery |
+| `/register` | RFC 7591 | Dynamic client registration |
+| `/authorize` | OAuth 2.1 | Approval page; PKCE required |
+| `/token` | OAuth 2.1 | Code exchange and refresh, with rotation |
+
+Design decisions worth knowing:
+
+- **Both auth paths work.** The static `ZW_MCP_TOKEN` still authenticates Claude
+  Code, Claude Desktop and Agent SDK apps; OAuth tokens serve the connectors.
+  Dropping the static path to serve the connectors would have broken the rest.
+- **The resource owner is authenticated by knowledge of `ZW_MCP_TOKEN`.** This is
+  a single-operator server; a second credential store would add surface without
+  adding a boundary.
+- **Tokens are opaque and stored server-side**, so audience validation is a lookup
+  rather than JWT claim parsing, and there is no signing key to manage.
+- **Audience binding is enforced** (RFC 8707): a token issued for another resource
+  is rejected, which the spec requires.
+- State persists to `.oauth/state.json` (gitignored, mode 0600) so a restart does
+  not silently log every connector out.
+
+Verified end to end against the public URL: registration, PKCE challenge, approval,
+code exchange, MCP call with the issued token, refresh with rotation, and rejection
+of both a bad PKCE verifier and a forged token.
 
 Both connect from Anthropic's servers, not from your browser or machine, so they
 need a **public HTTPS URL**. A LAN IP, `*.local` name, `localhost`, or a
