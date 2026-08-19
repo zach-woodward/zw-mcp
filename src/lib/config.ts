@@ -43,7 +43,14 @@ let cached: Config | null = null;
 export function loadConfig(): Config {
   if (cached) return cached;
 
-  const parsed = schema.safeParse(process.env);
+  // .env.example ships optional keys as bare `KEY=`, which dotenv surfaces as ''.
+  // An empty string is not `undefined` to zod, so `.optional()` fields would hold
+  // '' and silently defeat every `??` fallback below. Drop blanks up front.
+  const present = Object.fromEntries(
+    Object.entries(process.env).filter(([, v]) => v !== undefined && v.trim() !== ''),
+  );
+
+  const parsed = schema.safeParse(present);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  - ${i.path.join('.') || '(root)'}: ${i.message}`)
