@@ -148,27 +148,48 @@ and prefer Serve.
 
 ## Always-on with launchd
 
+Two agents: the MCP server and the admin console. They are separate so either can
+be restarted alone.
+
 ```bash
 npm run build
-cp launchd/com.zw.mcp.plist ~/Library/LaunchAgents/
+cp launchd/com.zw.mcp.plist launchd/com.zw.mcp.admin.plist ~/Library/LaunchAgents/
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.zw.mcp.plist
-launchctl print gui/$(id -u)/com.zw.mcp | head -20     # verify it is running
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.zw.mcp.admin.plist
 ```
 
-After a rebuild:
+Verify:
+
+```bash
+launchctl print gui/$(id -u)/com.zw.mcp | grep -E 'state|pid'
+launchctl print gui/$(id -u)/com.zw.mcp.admin | grep -E 'state|pid'
+curl -s http://127.0.0.1:8787/health | jq .status
+```
+
+After a rebuild (`npm run build` writes `dist/`, which is what launchd runs):
 
 ```bash
 npm run build
 launchctl kickstart -k gui/$(id -u)/com.zw.mcp
+launchctl kickstart -k gui/$(id -u)/com.zw.mcp.admin
 ```
 
-To stop or remove it:
+To stop or remove:
 
 ```bash
 launchctl bootout gui/$(id -u)/com.zw.mcp
+launchctl bootout gui/$(id -u)/com.zw.mcp.admin
 ```
 
-Logs land in `logs/zw-mcp.log` (structured, redacted) plus `logs/launchd.{out,err}.log`.
+Both have `KeepAlive` (restarted if they die) and `ThrottleInterval` 10s, so a bad
+`.env` backs off instead of hot-looping.
+
+The admin plist sets `ADMIN_BIND=0.0.0.0` and `ADMIN_ALLOW_INSECURE=1`, making the
+console reachable at `http://ZWs-Mac-mini.local:8788` with no password. That is a
+deliberate choice for a demo account -- see the warning under **Admin console**.
+
+Logs: `logs/zw-mcp.log` (structured, redacted), `logs/launchd.{out,err}.log`, and
+`logs/launchd.admin.{out,err}.log`.
 
 ## Admin console
 
@@ -236,6 +257,20 @@ ADMIN_BIND=0.0.0.0 ADMIN_PASSWORD=$(openssl rand -hex 24) npm run admin
 Basic auth over plain HTTP base64-encodes credentials rather than encrypting
 them. For anything leaving your network, put Tailscale Serve in front (see
 **Remote access**) rather than relying on that.
+
+## MCP resources and prompts
+
+Beyond tools, the server exposes:
+
+- `docusign://overview` -- the product map: every API, its tool prefix, whether it
+  is enabled, and how the two tiers work. Start here.
+- `docusign://apis/<product>` -- a per-API cheat sheet: base URI, path shape,
+  scopes, curated tool list, and the raw hatch.
+- `demo_context` (prompt) -- loads the live demo board at the start of a session:
+  account and organization, enabled APIs, most-used eSignature templates, envelope
+  count for the last 30 days, a Navigator agreement-type breakdown, active Maestro
+  workflows, and CLM reachability. Every lookup is best-effort and degrades to a
+  note, so an unentitled product never fails the prompt.
 
 ## Health
 

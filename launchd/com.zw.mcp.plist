@@ -12,6 +12,7 @@
     <string>/Users/zwmacminiai/dev/zw-mcp/dist/src/index.js</string>
   </array>
 
+  <!-- Config is read from .env in this directory. -->
   <key>WorkingDirectory</key>
   <string>/Users/zwmacminiai/dev/zw-mcp</string>
 
@@ -31,10 +32,8 @@
 
   <key>EnvironmentVariables</key>
   <dict>
-    <!-- Config comes from .env in WorkingDirectory; only PATH is set here so
-         node can find anything it shells out to. -->
     <key>PATH</key>
-    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>NODE_ENV</key>
     <string>production</string>
   </dict>

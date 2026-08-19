@@ -11,6 +11,7 @@
  * no CORS dance.
  */
 import express, { type NextFunction, type Request, type Response } from 'express';
+import fs from 'node:fs';
 import path from 'node:path';
 import { timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -51,6 +52,23 @@ if (!isLoopback && !ADMIN_PASSWORD && !ALLOW_INSECURE) {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Static assets live in admin/public. Under tsx that sits next to this file, but
+ * `tsc` does not copy non-TS files, so in dist/ it does not. Resolve against the
+ * working directory first (launchd sets it to the project root) and fall back to
+ * the source-relative path for `npm run admin`.
+ */
+const PUBLIC_DIR = [
+  path.resolve(process.cwd(), 'admin/public'),
+  path.join(__dirname, 'public'),
+].find((d) => fs.existsSync(path.join(d, 'index.html')));
+
+if (!PUBLIC_DIR) {
+  console.error('Cannot find admin/public/index.html. Run from the project root.');
+  process.exit(1);
+}
+
 const app = express();
 app.use(express.json({ limit: '25mb' }));
 
@@ -81,7 +99,7 @@ if (ADMIN_PASSWORD) {
   });
 }
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(PUBLIC_DIR));
 
 let rpcId = 0;
 

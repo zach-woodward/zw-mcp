@@ -30,7 +30,8 @@ graph LR
 
   subgraph mini["Mac mini (launchd, always on)"]
     AUTHZ{"Bearer auth<br/>ZW_MCP_TOKEN"}
-    ZW["ZW MCP<br/>:8787 /mcp"]
+    ZW["ZW MCP<br/>com.zw.mcp :8787 /mcp"]
+    ADMIN["Admin console<br/>com.zw.mcp.admin :8788<br/>separate app, LAN-bound"]
     LOGS[("./logs")]
     DL[("./downloads")]
   end
@@ -58,6 +59,8 @@ graph LR
   COW --> TS
   SKIN --> TS
   TS --> AUTHZ --> ZW
+  LAN["Operator browser<br/>on the LAN"] --> ADMIN
+  ADMIN -->|same bearer-authed /mcp<br/>any client uses| AUTHZ
   ZW --> LOGS
   ZW --> DL
   ZW -->|JWT Grant| OAUTH
@@ -87,6 +90,8 @@ reaching `/mcp` carries `Authorization: Bearer <ZW_MCP_TOKEN>`. The server binds
 
 ```mermaid
 graph TD
+  ADMINAPP["Admin console -- admin/<br/>separate process, drives /mcp<br/>like any other MCP client"]
+
   subgraph transport["Transport layer -- src/index.ts, src/stdio.ts"]
     HTTP["Express + StreamableHTTPServerTransport<br/>stateless: one server per request"]
     STDIO["StdioServerTransport<br/>debug only"]
@@ -128,6 +133,7 @@ graph TD
   DL[("./downloads<br/>PDFs, not base64")]
   DS["DocuSign product APIs"]
 
+  ADMINAPP --> HTTP
   HTTP --> MW --> ROUTER
   STDIO --> ROUTER
   ROUTER --> T1
@@ -273,7 +279,7 @@ ZW MCP and every skin gets it. ZW MCP itself stays UI-free.
 
 ## 8. Per-product coverage
 
-Status as of Phase 1, verified against the Woodward Systems demo account
+**84 tools across 12 products.** Status as of Phase 4, verified against the Woodward Systems demo account
 (`b99e0abc-…`, org `4773242b-…`, base URI `https://demo.docusign.net`). Base URIs and scopes are transcribed from the verified
 tables in [`specs/BASE_PATHS.md`](../specs/BASE_PATHS.md).
 
@@ -283,15 +289,15 @@ tables in [`specs/BASE_PATHS.md`](../specs/BASE_PATHS.md).
 | Navigator | `api-d.docusign.com/v1` | `adm_store_unified_repo_read` | 5 | ✅ | vendored OpenAPI 3.1 | beta -- **verified live** |
 | CLM | discovered per account (`apiuatna11.springcm.com`) | `spring_read`, `spring_write`, `content` | 13 | ✅ | hand-built from CLM swagger | GA -- **verified live** |
 | Maestro (= Workflow Builder) | `api-d.docusign.com/v1` | `aow_manage` | 8 | ✅ | vendored OpenAPI 3.1 | beta -- **verified live** |
-| Web Forms | `apps-d.docusign.com/api/webforms` | `webforms_read`, `webforms_instance_read/write` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
-| Rooms v2 | `demo.rooms.docusign.com/restapi` | `dtr.*`, `room_forms` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
-| Click | `{base_uri}/clickapi` | `click.manage`, `click.send` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
-| Admin | `api-d.docusign.net/management` | `organization_read`, `user_read`, ... | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
-| Monitor | `lens-d.docusign.net/api/v2.0/datasets/monitor` | `signature` (unverified) | 0 | ✅ | vendored OpenAPI | Phase 3 -- spec and docs disagree on host |
-| Notary | `notary-d.docusign.net` | `notary_read`, `notary_write` | 0 | ✅ | hand-built (no published spec) | GA -- Phase 3 |
-| Connected Fields | `api-d.docusign.com/v1` | `adm_store_unified_repo_read` + `signature` | 0 | ✅ | vendored OpenAPI 3.1 | GA -- Phase 3 |
-| Workspaces | `api-d.docusign.com/v1` | `dtr.rooms.*`, `dtr.documents.write` | 0 | ✅ | vendored OpenAPI 3.0 | beta -- Phase 3 |
-| Trust Records | unverified | unverified | 0 | ✅ | none published | Phase 3 -- confirm the API exists as a separate surface |
+| Web Forms | `apps-d.docusign.com/api/webforms` | `webforms_read`, `webforms_instance_read/write` | 4 | ✅ | vendored OpenAPI | GA -- **verified live** |
+| Rooms v2 | `demo.rooms.docusign.com/restapi` | `dtr.*`, `room_forms` | 7 | ✅ | vendored OpenAPI | GA -- **verified live** |
+| Click | `{base_uri}/clickapi` | `click.manage`, `click.send` | 5 | ✅ | vendored OpenAPI | GA -- **verified live** |
+| Admin | `api-d.docusign.net/management` | `organization_read`, `user_read`, ... | 5 | ✅ | vendored OpenAPI | GA -- **verified live** |
+| Monitor | `api-d.docusign.com/v1` (org-scoped) | `signature` | 1 | ✅ | vendored OpenAPI | GA -- **endpoint verified; org lacks entitlement** |
+| Notary | `notary-d.docusign.net/restapi` | `notary_read/write` + `organization_read` + `signature` | 3 | ✅ | hand-built (no published spec) | GA -- **verified live (pool empty)** |
+| Connected Fields | `api-d.docusign.com/v1` | `adm_store_unified_repo_read` + `signature` | 1 | ✅ | vendored OpenAPI 3.1 | GA -- **verified live** |
+| Workspaces | `api-d.docusign.com/v1` | `dtr.rooms.*`, `dtr.documents.write` | 7 | ✅ | vendored OpenAPI 3.0 | beta -- **verified live** |
+| ~~Trust Records~~ | — | — | 0 | — | none published | **Does not exist as a public API** (6 candidate paths 404, no docs). Off by default. |
 
 "Raw hatch ✅" means the product gets a `<product>_raw_request` tool as soon as it
 is listed in `DS_PRODUCTS`, regardless of curated coverage.
@@ -345,6 +351,48 @@ full-text coverage it does not have.
 a made-up scope string returns a token just as happily as a real one. So a ✅ does
 not prove a scope is real or effective; only `consent_required` proves a scope is
 recognised. The tool is reliable in the negative direction only.
+
+### Phase 3 notes
+
+**Four projection bugs, all found by calling the API rather than reading the spec.**
+Each returned a valid-looking object with the useful fields missing, so none would
+have thrown:
+
+1. Admin lists users at `/v2/organizations/{org}/users` (the spec's
+   `/v2.1/.../users/dsprofile` 404s for the list form) and **requires
+   `account_id`** -- without it, 400. It also answers in snake_case.
+2. Web Forms nests the form name under `formProperties.name`.
+3. Workspaces answers in snake_case, and its upload-requests endpoint wraps
+   results in `data` while every sibling uses a named key.
+4. Maestro instances use `name`/`workflow_status`/`template_id`, not the spec's
+   `instance_name`/`instance_state`/`workflow_id`.
+
+**Monitor's host was settled by probe, not by reading.** The docs base-path table
+and the vendored spec disagreed. `api-d.docusign.com/v1/organizations/{orgId}/stream`
+returns a Monitor-specific `403 "Organization does not have Monitor entitlement"`
+-- it routed and evaluated entitlement -- while the docs' `lens-d` host returns a
+bare 403. The spec is right; this organization simply lacks the entitlement, which
+no code change will fix.
+
+**Two documented scopes are inert on this account.** `models_read` (Navigator) and
+`content` (CLM) both appear in Docusign's scopes reference, but neither is ever
+granted here: requesting 29 scopes returns 28. Both are excluded, and Navigator and
+CLM work without them. Including `models_read` originally broke Navigator entirely,
+since a consent grant is all-or-nothing.
+
+### Phase 4 notes
+
+**The admin console is a separate process on purpose.** ZW MCP stays UI-free, and
+the console reaches it over the same bearer-authed `/mcp` endpoint that Claude
+Desktop or claude.ai uses -- so it doubles as an end-to-end integration check:
+anything the console can drive, a real client can drive. The bearer token lives in
+the console's server process and never reaches the browser.
+
+The console **fails closed**: binding it off-loopback without `ADMIN_PASSWORD`
+refuses to start unless `ADMIN_ALLOW_INSECURE=1` is set explicitly. It currently
+runs LAN-bound with that flag, which is a deliberate choice for a demo account --
+the console can send and void envelopes, so that trade should be revisited before
+this ever points at production.
 
 > Update this file at the end of every phase. The diagrams above are the contract;
 > if the code stops matching them, the code or the diagram is wrong.
