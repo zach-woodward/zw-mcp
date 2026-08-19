@@ -31,6 +31,11 @@ export type ProductStatus = 'ga' | 'beta' | 'unverified';
 export interface ProductSpec {
   id: ProductId;
   label: string;
+  /**
+   * Tool-name prefix. Usually the product id, but a few read better shortened
+   * (`nav_search_agreements`, not `navigator_search_agreements`).
+   */
+  toolPrefix: string;
   /** Base URI with no trailing slash. `account` comes from /oauth/userinfo. */
   baseUri: (env: 'demo' | 'prod', account: AccountInfo) => string;
   /** Shape of a path underneath the base URI, for tool descriptions. */
@@ -47,6 +52,7 @@ const iamHost = (env: 'demo' | 'prod') =>
 export const PRODUCTS: Record<ProductId, ProductSpec> = {
   esign: {
     id: 'esign',
+    toolPrefix: 'esign',
     label: 'eSignature REST API v2.1',
     // account.baseUri is e.g. https://demo.docusign.net (demo) or
     // https://na4.docusign.net (prod) -- never hardcode the data center.
@@ -58,6 +64,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   navigator: {
     id: 'navigator',
+    toolPrefix: 'nav',
     label: 'Navigator API',
     baseUri: (env) => iamHost(env),
     pathHint: '/v1/accounts/{accountId}/agreements',
@@ -67,6 +74,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   clm: {
     id: 'clm',
+    toolPrefix: 'clm',
     label: 'CLM API',
     // CLM (SpringCM) lives on a per-account host discovered at runtime; see
     // src/clients/clm.ts. This placeholder is replaced in Phase 2.
@@ -79,6 +87,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   maestro: {
     id: 'maestro',
+    toolPrefix: 'maestro',
     // The brief asked whether "Workflow Builder" is a distinct API. It is not:
     // workflowbuilder.rest.swagger-1.0.0.json declares the same 8 paths on the
     // same servers as maestro.rest.swagger-v1.0.0.json -- it is Maestro renamed.
@@ -92,6 +101,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   webforms: {
     id: 'webforms',
+    toolPrefix: 'webforms',
     label: 'Web Forms API',
     baseUri: (env) =>
       env === 'prod'
@@ -104,6 +114,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   rooms: {
     id: 'rooms',
+    toolPrefix: 'rooms',
     label: 'Rooms API v2',
     baseUri: (env) =>
       env === 'prod'
@@ -116,6 +127,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   click: {
     id: 'click',
+    toolPrefix: 'click',
     label: 'Click API',
     // The docs base-path table lists Click under /restapi, but the vendored spec's
     // own basePath is /clickapi and its paths are /v1/accounts/... -- the spec wins.
@@ -128,6 +140,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   admin: {
     id: 'admin',
+    toolPrefix: 'admin',
     label: 'Admin API',
     baseUri: (env) =>
       env === 'prod'
@@ -140,6 +153,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   monitor: {
     id: 'monitor',
+    toolPrefix: 'monitor',
     label: 'Monitor API',
     baseUri: (env) =>
       env === 'prod'
@@ -156,6 +170,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   notary: {
     id: 'notary',
+    toolPrefix: 'notary',
     label: 'Notary API',
     baseUri: (env) =>
       env === 'prod' ? 'https://na-notary.docusign.net' : 'https://notary-d.docusign.net',
@@ -166,6 +181,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   connectedfields: {
     id: 'connectedfields',
+    toolPrefix: 'connectedfields',
     label: 'Connected Fields API',
     baseUri: (env) => iamHost(env),
     pathHint: '/v1/accounts/{accountId}/connected-fields/tab-groups',
@@ -175,6 +191,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   workspaces: {
     id: 'workspaces',
+    toolPrefix: 'workspaces',
     label: 'Workspaces API',
     baseUri: (env) => iamHost(env),
     pathHint: '/v1/accounts/{accountId}/workspaces',
@@ -184,6 +201,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
   },
   trustrecords: {
     id: 'trustrecords',
+    toolPrefix: 'trustrecords',
     label: 'Trust Records API',
     // UNVERIFIED: Trust Records appears in neither the endpoint base-path table
     // nor the scopes reference. Confirm in Phase 3 before relying on this.

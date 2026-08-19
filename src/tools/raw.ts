@@ -15,12 +15,12 @@ export function registerRawTool(server: McpServer, product: ProductId): void {
   const spec = PRODUCTS[product];
 
   server.registerTool(
-    `${product}_raw_request`,
+    `${spec.toolPrefix}_raw_request`,
     {
       title: `Raw ${spec.label} request`,
       description:
         `Escape hatch: send an arbitrary authenticated request to the ${spec.label}. ` +
-        `Use this only when no curated ${product}_* tool covers what you need.\n\n` +
+        `Use this only when no curated ${spec.toolPrefix}_* tool covers what you need.\n\n` +
         `Paths are relative to that API's base URI and "{accountId}" is substituted ` +
         `automatically, so a typical path looks like: ${spec.pathHint}\n\n` +
         `Auth, token refresh and retry are handled for you. Docs: ${spec.docsUrl}` +

@@ -17,9 +17,14 @@ export const BASE_SCOPES = ['signature', 'impersonation'] as const;
 export const PRODUCT_SCOPES: Record<string, string[]> = {
   esign: ['signature'],
 
-  // `models_read` is not required by any endpoint today; the docs recommend
-  // requesting it anyway for forward-compatibility.
-  navigator: ['adm_store_unified_repo_read', 'models_read'],
+  // `models_read` is deliberately NOT here. The docs recommend requesting it for
+  // forward-compatibility, but it is not required by any Navigator endpoint today
+  // and the Woodward Systems demo account cannot consent to it -- and because a
+  // grant is all-or-nothing, including it made every Navigator call fail with
+  // consent_required. Add it back only once an account proves it is grantable
+  // (`npm run scopecheck` reports per-scope grantability).
+  // VERIFIED 2026-08-19 scopecheck against demo account b99e0abc-…
+  navigator: ['adm_store_unified_repo_read'],
 
   // `content` grants read+write on CLM document content (needed to download docs).
   clm: ['spring_read', 'spring_write', 'content'],

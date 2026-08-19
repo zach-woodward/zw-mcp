@@ -48,9 +48,25 @@ per integration key. `npm run consent` prints the URL; open it, sign in **as tha
 user**, click Accept. The server also detects `consent_required` at startup and
 prints the URL again.
 
-A scope the account is not entitled to fails the *entire* consent grant. If
-consent errors, remove the offending product from `DS_PRODUCTS` and re-run --
-that is exactly why scopes are grouped per product.
+A scope the account is not entitled to fails the *entire* consent grant, and
+DocuSign will record a consent that silently omits it -- so "I clicked Accept" is
+not proof a scope works. When a product returns `consent_required`, run:
+
+```bash
+npm run scopecheck        # probes every scope individually, ✅/❌ per scope
+```
+
+That pinpoints the offending scope instead of guessing at a whole product's set.
+Then drop it (or the product) from `DS_PRODUCTS` and re-run consent. This is not
+hypothetical: Navigator's documented-best-practice `models_read` scope is not
+grantable on the Woodward Systems demo account, and including it broke every
+Navigator call until `scopecheck` isolated it.
+
+To consent for a later phase's scopes in the same click:
+
+```bash
+npm run consent -- --products esign,navigator,maestro
+```
 
 ## Connecting clients
 
@@ -171,6 +187,7 @@ design so a monitor can poll it; it never returns the token itself.
 | `npm run stdio` | stdio transport, for MCP Inspector / local debugging |
 | `npm run consent` | Print the one-time DocuSign consent URL |
 | `npm run smoke` | One cheap read per enabled product, ✅/❌ table |
+| `npm run scopecheck` | Probe each OAuth scope individually to find one the account cannot grant |
 | `npm run typecheck` | `tsc --noEmit` |
 
 ## Repository layout

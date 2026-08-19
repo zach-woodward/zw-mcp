@@ -279,10 +279,10 @@ tables in [`specs/BASE_PATHS.md`](../specs/BASE_PATHS.md).
 
 | API | Base URI (demo) | Scopes | Curated tools | Raw hatch | Spec source | Status |
 | --- | --- | --- | ---: | :---: | --- | --- |
-| eSignature v2.1 | `{base_uri}/restapi` | `signature` | 13 | ✅ | vendored OpenAPI | GA -- **Phase 1 verified live** |
-| Navigator | `api-d.docusign.com/v1` | `adm_store_unified_repo_read`, `models_read` | 0 | ✅ | vendored OpenAPI 3.1 | beta -- Phase 2 |
-| CLM | per-account SpringCM host | `spring_read`, `spring_write`, `content` | 0 | ✅ | hand-built (no published spec) | Phase 2, host discovery unverified |
-| Maestro (= Workflow Builder) | `api-d.docusign.com/v1` | `aow_manage` | 0 | ✅ | vendored OpenAPI 3.1 | beta -- Phase 2 |
+| eSignature v2.1 | `{base_uri}/restapi` | `signature` | 13 | ✅ | vendored OpenAPI | GA -- **verified live** |
+| Navigator | `api-d.docusign.com/v1` | `adm_store_unified_repo_read` | 5 | ✅ | vendored OpenAPI 3.1 | beta -- **verified live** |
+| CLM | per-account SpringCM host (discovered) | `spring_read`, `spring_write`, `content` | 12 | ✅ | hand-built (no published spec) | **UNVERIFIED -- needs a CLM-entitled production account** |
+| Maestro (= Workflow Builder) | `api-d.docusign.com/v1` | `aow_manage` | 8 | ✅ | vendored OpenAPI 3.1 | beta -- **verified live** |
 | Web Forms | `apps-d.docusign.com/api/webforms` | `webforms_read`, `webforms_instance_read/write` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
 | Rooms v2 | `demo.rooms.docusign.com/restapi` | `dtr.*`, `room_forms` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
 | Click | `{base_uri}/clickapi` | `click.manage`, `click.send` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
@@ -295,6 +295,34 @@ tables in [`specs/BASE_PATHS.md`](../specs/BASE_PATHS.md).
 
 "Raw hatch ✅" means the product gets a `<product>_raw_request` tool as soon as it
 is listed in `DS_PRODUCTS`, regardless of curated coverage.
+
+### Phase 2 notes
+
+**`models_read` is deliberately excluded from the Navigator scope set.** The docs
+recommend requesting it for forward-compatibility, but the demo account cannot
+consent to it, and because a consent grant is all-or-nothing its presence made
+every Navigator call fail with `consent_required`. `npm run scopecheck` probes
+each scope individually and is the fastest way to find such a scope.
+
+**CLM cannot be verified on a demo account.** Every CLM docs page carries the
+banner "Developing with the CLM API is only available for CLM customers with a
+production account", and the behaviour matches: the UAT discovery endpoint
+(`authuat.springcm.com/api/v2/{accountId}/account`) answers `401 Access Denied`,
+and `spring_read` / `spring_write` are not grantable. The twelve `clm_*` tools are
+written from the documented Object/Task/Content surfaces and marked UNVERIFIED in
+`src/clients/clm.ts`. CLM is also the one product that does not use the shared
+client, because its hosts are data-center specific, discovered at runtime, and
+different per surface (Object / Task / Content-upload / Content-download).
+
+**Two live-vs-spec divergences, both caught by calling the API:**
+
+1. Maestro's OpenAPI models a workflow instance as
+   `instance_name` / `instance_state` / `workflow_id`. The live API returns
+   `name` / `workflow_status` / `template_id`. Projecting on the spec's names
+   returned near-empty objects.
+2. Navigator sorts and filters on different names for the same field: filtering
+   uses `provisions.expiration_date`, sorting uses `expiration_date`. Sorting by
+   the filter name returns a 400 that helpfully lists the legal sort fields.
 
 > Update this file at the end of every phase. The diagrams above are the contract;
 > if the code stops matching them, the code or the diagram is wrong.

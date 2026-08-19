@@ -14,7 +14,8 @@
     "stdio": "tsx src/stdio.ts",
     "consent": "ZW_MCP_QUIET=1 tsx scripts/consent.ts",
     "smoke": "ZW_MCP_QUIET=1 tsx scripts/smoke.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "scopecheck": "ZW_MCP_QUIET=1 tsx scripts/scopecheck.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
