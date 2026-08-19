@@ -6,7 +6,23 @@ import { guard, ok, pick } from '../lib/respond.js';
 /** Base URI already carries /api/webforms; paths start at the version segment. */
 const FORMS = '/v1.1/accounts/{accountId}/forms';
 
-const FORM_KEYS = ['id', 'name', 'formType', 'versionId', 'isPublished', 'createdDateTime'] as const;
+/**
+ * A form's human-readable name lives in `formProperties.name`, not at the top
+ * level, so a flat projection returns near-anonymous ids. `compactForm` flattens
+ * the two nested objects that matter.
+ * VERIFIED 2026-08-19 against demo account b99e0abc-… (live form payload).
+ */
+function compactForm(f: Record<string, unknown>) {
+  const props = (f.formProperties ?? {}) as Record<string, unknown>;
+  const meta = (f.formMetadata ?? {}) as Record<string, unknown>;
+  return {
+    ...pick(f, ['id', 'formState', 'isPublished', 'isEnabled', 'hasDraftChanges'] as const),
+    name: props.name,
+    isPrivateAccess: props.isPrivateAccess,
+    createdDateTime: meta.createdDateTime,
+    publishedSlug: meta.publishedSlug,
+  };
+}
 const INSTANCE_KEYS = [
   'id',
   'formId',
@@ -48,7 +64,7 @@ export function registerWebFormsTools(server: McpServer): void {
       return ok({
         count: items.length,
         total: res.totalSetSize,
-        forms: args.verbose ? items : items.map((f) => pick(f, FORM_KEYS)),
+        forms: args.verbose ? items : items.map(compactForm),
       });
     }),
   );
@@ -67,7 +83,7 @@ export function registerWebFormsTools(server: McpServer): void {
         method: 'GET',
         path: `${FORMS}/${args.form_id}`,
       });
-      return ok(args.verbose ? f : pick(f, FORM_KEYS));
+      return ok(args.verbose ? f : compactForm(f));
     }),
   );
 

@@ -26,8 +26,13 @@ export const PRODUCT_SCOPES: Record<string, string[]> = {
   // VERIFIED 2026-08-19 scopecheck against demo account b99e0abc-…
   navigator: ['adm_store_unified_repo_read'],
 
-  // `content` grants read+write on CLM document content (needed to download docs).
-  clm: ['spring_read', 'spring_write', 'content'],
+  // `content` is deliberately omitted. The scopes reference lists it under the CLM
+  // API ("read and write access to CLM document content"), but it is inert: a
+  // consent grant covering it returns a token WITHOUT it (29 requested, 28
+  // granted), and CLM document download works fine without it. Requesting it only
+  // makes the granted-scope list look wrong.
+  // VERIFIED 2026-08-19 against demo account b99e0abc-… (grant diff + live download).
+  clm: ['spring_read', 'spring_write'],
 
   // VERIFIED 2026-08-19 https://developers.docusign.com/docs/maestro-api/how-to/trigger-workflow/
   maestro: ['aow_manage'],

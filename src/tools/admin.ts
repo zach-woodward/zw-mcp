@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { apiRequest } from '../clients/base.js';
+import { getAccount } from '../auth/jwt.js';
 import { guard, ok, pick } from '../lib/respond.js';
 
 /**
@@ -8,7 +9,12 @@ import { guard, ok, pick } from '../lib/respond.js';
  * /oauth/userinfo by the shared client, so callers never pass it.
  *
  * Note the two coexisting versions: v2 for organization/account listings, v2.1
- * for the newer user-profile and DS-group endpoints. Both are current.
+ * for the newer user-profile and DS-group endpoints. Both are current, and the
+ * Admin API answers in snake_case while every other Docusign API uses camelCase.
+ *
+ * Listing users requires `account_id` (or organization/domain/email): without it
+ * the API returns 400 invalid_request_parameter_value rather than defaulting.
+ * VERIFIED 2026-08-19 against org 4773242b-… (live responses).
  * Deliberately read-heavy -- user creation and redaction are reachable through
  * admin_raw_request rather than being given a friendly tool.
  */
@@ -62,12 +68,17 @@ export function registerAdminTools(server: McpServer): void {
       },
     },
     guard(async (args) => {
-      const res = await apiRequest<{ users?: Array<Record<string, unknown>> }>('admin', {
+      const account = await getAccount();
+      const res = await apiRequest<{
+        users?: Array<Record<string, unknown>>;
+        paging?: Record<string, unknown>;
+      }>('admin', {
         method: 'GET',
-        path: `${ORG21}/users/dsprofile`,
+        path: `${ORG}/users`,
         query: {
           email: args.email,
-          account_id: args.account_id,
+          // Required -- see the module comment.
+          account_id: args.account_id ?? account.accountId,
           start: args.start,
           take: args.take,
         },
@@ -75,16 +86,18 @@ export function registerAdminTools(server: McpServer): void {
       const users = res.users ?? [];
       return ok({
         count: users.length,
+        paging: res.paging,
         users: args.verbose
           ? users
           : users.map((u) =>
               pick(u, [
                 'id',
-                'userName',
-                'firstName',
-                'lastName',
-                'userStatus',
-                'defaultAccountId',
+                'user_name',
+                'first_name',
+                'last_name',
+                'email',
+                'membership_status',
+                'membership_created_on',
               ] as const),
             ),
       });
@@ -99,9 +112,15 @@ export function registerAdminTools(server: McpServer): void {
         'Fetch one user profile by their user GUID, including account memberships and status.',
       inputSchema: { user_id: z.string() },
     },
-    guard(async (args) =>
-      ok(await apiRequest('admin', { method: 'GET', path: `${ORG21}/users/${args.user_id}/dsprofile` })),
-    ),
+    guard(async (args) => {
+      // The dsprofile endpoint answers with a one-element `users` array rather
+      // than a bare user object.
+      const res = await apiRequest<{ users?: Array<Record<string, unknown>> }>('admin', {
+        method: 'GET',
+        path: `${ORG21}/users/${args.user_id}/dsprofile`,
+      });
+      return ok(res.users?.[0] ?? res);
+    }),
   );
 
   server.registerTool(
@@ -130,7 +149,7 @@ export function registerAdminTools(server: McpServer): void {
         count: groups.length,
         groups: args.verbose
           ? groups
-          : groups.map((g) => pick(g, ['id', 'name', 'type', 'userCount'] as const)),
+          : groups.map((g) => pick(g, ['id', 'name', 'type', 'user_group_type'] as const)),
       });
     }),
   );
@@ -158,7 +177,7 @@ export function registerAdminTools(server: McpServer): void {
         count: perms.length,
         permissionProfiles: args.verbose
           ? perms
-          : perms.map((p) => pick(p, ['id', 'name', 'isDefault'] as const)),
+          : perms.map((p) => pick(p, ['id', 'name'] as const)),
       });
     }),
   );

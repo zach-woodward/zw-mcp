@@ -5,13 +5,18 @@ import { guard, ok, pick, saveDownload } from '../lib/respond.js';
 
 const WS = '/v1/accounts/{accountId}/workspaces';
 
+/**
+ * Workspaces answers in snake_case (like the Admin API, unlike eSignature), and
+ * wraps lists as { workspaces, result_set_size, total_row_count }.
+ * VERIFIED 2026-08-19 against demo account b99e0abc-… (live payload).
+ */
 const WORKSPACE_KEYS = [
-  'workspaceId',
+  'workspace_id',
   'name',
   'status',
-  'createdDate',
-  'lastModifiedDate',
-  'workspaceType',
+  'created_date',
+  'created_by_user_id',
+  'last_modified_date',
 ] as const;
 
 interface ListResponse<T = Record<string, unknown>> {
@@ -19,8 +24,10 @@ interface ListResponse<T = Record<string, unknown>> {
   documents?: T[];
   envelopes?: T[];
   users?: T[];
+  /** Upload requests wrap in `data`, not `upload_requests` -- unlike every sibling. */
+  data?: T[];
   value?: T[];
-  resultSetSize?: number;
+  total_row_count?: number;
 }
 
 export function registerWorkspacesTools(server: McpServer): void {
@@ -46,6 +53,7 @@ export function registerWorkspacesTools(server: McpServer): void {
       const items = res.workspaces ?? res.value ?? [];
       return ok({
         count: items.length,
+        total: res.total_row_count,
         workspaces: args.verbose ? items : items.map((w) => pick(w, WORKSPACE_KEYS)),
       });
     }),
@@ -85,7 +93,14 @@ export function registerWorkspacesTools(server: McpServer): void {
         documents: args.verbose
           ? docs
           : docs.map((d) =>
-              pick(d, ['documentId', 'name', 'createdDate', 'createdByName', 'uri'] as const),
+              pick(d, [
+                'document_id',
+                'name',
+                'owner_id',
+                'size',
+                'created_date',
+                'last_updated_date',
+              ] as const),
             ),
       });
     }),
@@ -136,7 +151,7 @@ export function registerWorkspacesTools(server: McpServer): void {
         count: envs.length,
         envelopes: args.verbose
           ? envs
-          : envs.map((e) => pick(e, ['envelopeId', 'status', 'sentDateTime', 'emailSubject'] as const)),
+          : envs.map((e) => pick(e, ['envelope_id', 'status'] as const)),
       });
     }),
   );
@@ -155,13 +170,22 @@ export function registerWorkspacesTools(server: McpServer): void {
         method: 'GET',
         path: `${WS}/${args.workspace_id}/upload-requests`,
       });
-      const items = (res as { uploadRequests?: Array<Record<string, unknown>> }).uploadRequests ??
-        res.value ?? [];
+      const items = res.data ?? res.value ?? [];
       return ok({
         count: items.length,
         uploadRequests: args.verbose
           ? items
-          : items.map((u) => pick(u, ['uploadRequestId', 'name', 'status', 'dueDate'] as const)),
+          : items.map((u) =>
+              pick(u, [
+                'upload_request_id',
+                'name',
+                'description',
+                'status',
+                'due_date',
+                'sent_date',
+                'completed_date',
+              ] as const),
+            ),
       });
     }),
   );
@@ -183,7 +207,16 @@ export function registerWorkspacesTools(server: McpServer): void {
         count: users.length,
         users: args.verbose
           ? users
-          : users.map((u) => pick(u, ['userId', 'email', 'name', 'role', 'status'] as const)),
+          : users.map((u) =>
+              pick(u, [
+                'user_id',
+                'email',
+                'first_name',
+                'last_name',
+                'role_id',
+                'role_name',
+              ] as const),
+            ),
       });
     }),
   );
