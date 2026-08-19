@@ -291,6 +291,183 @@ app.post('/api/network/funnel', async (req: Request, res: Response) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Activity: the structured log, made legible.
+// ---------------------------------------------------------------------------
+
+const LOG_FILE = path.resolve(process.cwd(), 'logs/zw-mcp.log');
+const OAUTH_STATE = path.resolve(process.cwd(), '.oauth/state.json');
+
+interface Event {
+  time: number;
+  kind: 'docusign' | 'request' | 'auth' | 'error' | 'other';
+  level: number;
+  summary: string;
+  detail: Record<string, unknown>;
+}
+
+/** Classifies a pino record into something worth showing a human. */
+function classify(d: Record<string, unknown>): Event | null {
+  const msg = String(d.msg ?? '');
+  const time = Number(d.time ?? 0);
+  const level = Number(d.level ?? 30);
+  const base = { time, level };
+
+  if (msg === 'docusign api call') {
+    return {
+      ...base,
+      kind: 'docusign',
+      summary: `${d.product} ${d.method} ${d.path} -> ${d.status}`,
+      detail: { durationMs: d.durationMs, product: d.product, status: d.status },
+    };
+  }
+  if (msg === 'inbound request') {
+    return {
+      ...base,
+      kind: 'request',
+      summary: `${d.method} ${d.path} -> ${d.status}`,
+      detail: { durationMs: d.durationMs, ua: d.ua, ip: d.ip },
+    };
+  }
+  if (
+    msg.includes('oauth') ||
+    msg.includes('access token') ||
+    msg.includes('unauthenticated') ||
+    msg.includes('bad token') ||
+    msg.includes('consent')
+  ) {
+    return { ...base, kind: 'auth', summary: msg, detail: d };
+  }
+  if (level >= 50 || msg.includes('error') || msg.includes('failed')) {
+    return { ...base, kind: 'error', summary: msg, detail: d };
+  }
+  if (msg) return { ...base, kind: 'other', summary: msg, detail: {} };
+  return null;
+}
+
+/** Reads the tail of the log without loading a large file into memory. */
+function tailLog(maxBytes = 512 * 1024): string[] {
+  if (!fs.existsSync(LOG_FILE)) return [];
+  const size = fs.statSync(LOG_FILE).size;
+  const start = Math.max(0, size - maxBytes);
+  const fd = fs.openSync(LOG_FILE, 'r');
+  try {
+    const buf = Buffer.alloc(size - start);
+    fs.readSync(fd, buf, 0, buf.length, start);
+    const lines = buf.toString('utf8').split('\n');
+    // A partial first line is likely when starting mid-file.
+    if (start > 0) lines.shift();
+    return lines.filter(Boolean);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+app.get('/api/activity', (req: Request, res: Response) => {
+  const limit = Math.min(Number(req.query.limit ?? 150), 1000);
+  const kind = String(req.query.kind ?? 'all');
+  const q = String(req.query.q ?? '').toLowerCase();
+
+  const events: Event[] = [];
+  for (const line of tailLog()) {
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+    const ev = classify(parsed);
+    if (!ev) continue;
+    if (kind !== 'all' && ev.kind !== kind) continue;
+    if (q && !ev.summary.toLowerCase().includes(q)) continue;
+    events.push(ev);
+  }
+
+  const recent = events.slice(-limit).reverse();
+  const counts = events.reduce<Record<string, number>>((acc, e) => {
+    acc[e.kind] = (acc[e.kind] ?? 0) + 1;
+    return acc;
+  }, {});
+  res.json({ events: recent, counts, scanned: events.length });
+});
+
+// ---------------------------------------------------------------------------
+// OAuth grants. Read straight from the state file; the MCP server reloads it on
+// change, so a revoke here takes effect there without a restart.
+// ---------------------------------------------------------------------------
+
+interface OAuthFile {
+  clients?: Record<string, { client_name?: string; redirect_uris?: string[]; created_at?: number }>;
+  tokens?: Record<string, { client_id: string; audience: string; expires_at: number }>;
+  refresh?: Record<string, string>;
+}
+
+function readOAuth(): OAuthFile {
+  try {
+    return JSON.parse(fs.readFileSync(OAUTH_STATE, 'utf8')) as OAuthFile;
+  } catch {
+    return {};
+  }
+}
+
+app.get('/api/grants', (_req: Request, res: Response) => {
+  const st = readOAuth();
+  const tokensByClient = new Map<string, number>();
+  for (const t of Object.values(st.tokens ?? {})) {
+    tokensByClient.set(t.client_id, (tokensByClient.get(t.client_id) ?? 0) + 1);
+  }
+  res.json({
+    clients: Object.entries(st.clients ?? {}).map(([id, c]) => ({
+      client_id: id,
+      client_name: c.client_name ?? '(unnamed)',
+      redirect_uris: c.redirect_uris ?? [],
+      created_at_iso: c.created_at ? new Date(c.created_at * 1000).toISOString() : null,
+      live_tokens: tokensByClient.get(id) ?? 0,
+    })),
+    totalTokens: Object.keys(st.tokens ?? {}).length,
+  });
+});
+
+app.post('/api/grants/revoke', (req: Request, res: Response) => {
+  const { client_id, all } = req.body as { client_id?: string; all?: boolean };
+  const st = readOAuth();
+  let removedClients = 0;
+  let removedTokens = 0;
+
+  if (all) {
+    removedClients = Object.keys(st.clients ?? {}).length;
+    removedTokens = Object.keys(st.tokens ?? {}).length;
+    st.clients = {};
+    st.tokens = {};
+    st.refresh = {};
+  } else if (client_id) {
+    if (st.clients?.[client_id]) {
+      delete st.clients[client_id];
+      removedClients = 1;
+    }
+    for (const [tok, t] of Object.entries(st.tokens ?? {})) {
+      if (t.client_id === client_id) {
+        delete st.tokens![tok];
+        removedTokens += 1;
+        for (const [r, target] of Object.entries(st.refresh ?? {})) {
+          if (target === tok) delete st.refresh![r];
+        }
+      }
+    }
+  } else {
+    res.status(400).json({ error: 'pass { client_id } or { all: true }' });
+    return;
+  }
+
+  try {
+    fs.mkdirSync(path.dirname(OAUTH_STATE), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(OAUTH_STATE, JSON.stringify(st, null, 2), { mode: 0o600 });
+    res.json({ ok: true, removedClients, removedTokens });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 /** Static project state the console renders: phases, known gaps, next steps. */
 app.get('/api/roadmap', (_req: Request, res: Response) => {
   res.json({

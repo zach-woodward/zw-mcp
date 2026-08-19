@@ -376,7 +376,7 @@ npm run admin    # terminal 2 -- console on :8788
 open http://127.0.0.1:8788
 ```
 
-Five tabs:
+Six tabs:
 
 - **Status** -- server health, token expiry, granted scopes, resolved account and
   organization, plus a per-product card. "Probe every product" fires one cheap
@@ -386,6 +386,11 @@ Five tabs:
   its model-facing description and full JSON input schema.
 - **Run** -- pick any tool, edit its arguments as JSON (pre-filled from the schema
   defaults), execute it, and read the result with timing.
+- **Activity** -- the structured log made legible: Docusign API calls, inbound
+  HTTP, auth/OAuth events and errors, filterable by kind and text, with optional
+  auto-refresh. Also lists OAuth grants and lets you revoke a client. Revocation
+  takes effect in the MCP server immediately -- it reloads the grant state when
+  the file changes, so no restart is needed.
 - **Network** -- Tailscale state and a switch to turn public Funnel access on or
   off. Shows whether the tailnet actually allows Funnel and whether HTTPS certs
   are issued, because without those the underlying command hangs silently instead

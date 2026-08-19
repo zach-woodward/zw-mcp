@@ -120,6 +120,7 @@
     <button id="tab-status" aria-selected="true">Status</button>
     <button id="tab-tools">Tools</button>
     <button id="tab-run">Run</button>
+    <button id="tab-activity">Activity</button>
     <button id="tab-network">Network</button>
     <button id="tab-next">Next</button>
   </nav>
@@ -162,6 +163,47 @@
     <pre id="runOut">Pick a tool and press Run.</pre>
   </section>
 
+  <section id="view-activity" hidden>
+    <div class="row">
+      <select id="actKind">
+        <option value="all">All events</option>
+        <option value="docusign">Docusign API calls</option>
+        <option value="request">Inbound HTTP</option>
+        <option value="auth">Auth &amp; OAuth</option>
+        <option value="error">Errors</option>
+      </select>
+      <input type="search" id="actQ" placeholder="Filter text…">
+      <button class="ghost" id="actRefresh">Refresh</button>
+      <label class="muted" style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="actAuto"> auto-refresh
+      </label>
+      <span class="muted" id="actMeta"></span>
+    </div>
+    <div class="grid" id="actCounts" style="margin-bottom:16px"></div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Time</th><th>Kind</th><th>Event</th><th>Detail</th></tr></thead>
+        <tbody id="actRows"><tr><td colspan="4" class="muted">loading…</td></tr></tbody>
+      </table>
+    </div>
+
+    <h2>OAuth grants</h2>
+    <p class="meta" style="margin-top:0">
+      Clients that completed the OAuth flow. Revoking takes effect immediately —
+      the MCP server reloads this state when it changes.
+    </p>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Client</th><th>ID</th><th>Redirect</th><th>Tokens</th><th></th></tr></thead>
+        <tbody id="grantRows"></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="ghost" id="revokeAll">Revoke everything</button>
+      <span class="muted" id="grantMsg"></span>
+    </div>
+  </section>
+
   <section id="view-network" hidden>
     <div class="row">
       <button class="ghost" id="netRefresh">Refresh</button>
@@ -202,7 +244,7 @@
 
 <script type="module">
 const $ = (id) => document.getElementById(id);
-const views = ['status', 'tools', 'run', 'network', 'next'];
+const views = ['status', 'tools', 'run', 'activity', 'network', 'next'];
 for (const v of views) {
   $(`tab-${v}`).addEventListener('click', () => {
     for (const w of views) {
@@ -353,6 +395,74 @@ $('runBtn').addEventListener('click', async () => {
   btn.disabled = false;
 });
 
+/* ---------- Activity ---------- */
+const KIND_DOT = { docusign: 'ok', request: 'idle', auth: 'warn', error: 'err', other: 'idle' };
+let autoTimer = null;
+
+async function loadActivity() {
+  const kind = $('actKind').value;
+  const q = encodeURIComponent($('actQ').value);
+  const r = await jget(`/api/activity?kind=${kind}&q=${q}&limit=200`);
+  const rows = r.events ?? [];
+  $('actMeta').textContent = `${rows.length} shown of ${r.scanned} matching`;
+
+  $('actCounts').innerHTML = Object.entries(r.counts ?? {})
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `
+      <div class="card"><h3><span class="dot ${KIND_DOT[k] ?? 'idle'}"></span>${k}</h3>
+      <div class="meta" style="font-size:20px;color:var(--ink)">${n}</div></div>`).join('');
+
+  $('actRows').innerHTML = rows.length
+    ? rows.map((e) => {
+        const t = new Date(e.time).toLocaleTimeString();
+        const det = Object.entries(e.detail || {})
+          .filter(([, v]) => v !== undefined && v !== null && v !== '')
+          .map(([k, v]) => `${k}=${String(v).slice(0, 60)}`).join('  ');
+        return `<tr>
+          <td class="mono">${t}</td>
+          <td><span class="dot ${KIND_DOT[e.kind] ?? 'idle'}"></span> ${e.kind}</td>
+          <td class="mono">${e.summary.replace(/</g, '&lt;')}</td>
+          <td class="mono muted">${det.replace(/</g, '&lt;')}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="4" class="muted">No matching events.</td></tr>';
+}
+$('actRefresh').addEventListener('click', loadActivity);
+$('actKind').addEventListener('change', loadActivity);
+$('actQ').addEventListener('input', () => { clearTimeout(window.__aq); window.__aq = setTimeout(loadActivity, 250); });
+$('actAuto').addEventListener('change', (e) => {
+  clearInterval(autoTimer);
+  if (e.target.checked) autoTimer = setInterval(loadActivity, 4000);
+});
+
+async function loadGrants() {
+  const g = await jget('/api/grants');
+  $('grantRows').innerHTML = (g.clients ?? []).length
+    ? g.clients.map((c) => `<tr>
+        <td>${c.client_name}</td>
+        <td class="mono">${c.client_id.slice(0, 18)}…</td>
+        <td class="mono muted">${(c.redirect_uris || []).join(', ')}</td>
+        <td>${c.live_tokens}</td>
+        <td><button class="ghost" data-revoke="${c.client_id}">Revoke</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" class="muted">No OAuth clients registered.</td></tr>';
+  for (const b of document.querySelectorAll('[data-revoke]')) {
+    b.addEventListener('click', () => revoke({ client_id: b.dataset.revoke }));
+  }
+}
+async function revoke(body) {
+  $('grantMsg').textContent = 'revoking…';
+  const r = await fetch('/api/grants/revoke', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then((x) => x.json());
+  $('grantMsg').textContent = r.error
+    ? r.error
+    : `removed ${r.removedClients} client(s), ${r.removedTokens} token(s)`;
+  await loadGrants();
+}
+$('revokeAll').addEventListener('click', () => revoke({ all: true }));
+
 /* ---------- Network ---------- */
 async function loadNetwork() {
   $('netMeta').textContent = 'checking…';
@@ -421,6 +531,8 @@ async function loadRoadmap() {
   syncRun();
   await loadRoadmap();
   await loadNetwork();
+  await loadActivity();
+  await loadGrants();
 })();
 </script>
 </body>

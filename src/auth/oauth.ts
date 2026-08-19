@@ -84,15 +84,25 @@ interface OAuthState {
 let state: OAuthState = { clients: {}, tokens: {}, refresh: {} };
 /** Auth codes are short-lived and deliberately NOT persisted. */
 const codes = new Map<string, AuthCode>();
+let stateMtimeMs = 0;
 
-function load(): void {
+/**
+ * Loads state, and reloads it when the file changes underneath us.
+ *
+ * The admin console runs as a SEPARATE process and revokes grants by rewriting
+ * this file. Without an mtime check, this process would keep honouring tokens
+ * from its in-memory copy and a revoke would silently do nothing until restart.
+ */
+function load(force = false): void {
   try {
-    if (fs.existsSync(STATE_FILE)) {
-      state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) as OAuthState;
-      state.clients ??= {};
-      state.tokens ??= {};
-      state.refresh ??= {};
-    }
+    if (!fs.existsSync(STATE_FILE)) return;
+    const mtime = fs.statSync(STATE_FILE).mtimeMs;
+    if (!force && mtime === stateMtimeMs) return;
+    state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) as OAuthState;
+    state.clients ??= {};
+    state.tokens ??= {};
+    state.refresh ??= {};
+    stateMtimeMs = mtime;
   } catch (err) {
     logger.warn({ err: (err as Error).message }, 'could not read oauth state; starting empty');
   }
@@ -102,6 +112,7 @@ function persist(): void {
   try {
     fs.mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
     fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), { mode: 0o600 });
+    stateMtimeMs = fs.statSync(STATE_FILE).mtimeMs;
   } catch (err) {
     logger.error({ err: (err as Error).message }, 'could not persist oauth state');
   }
@@ -113,6 +124,8 @@ const rand = (bytes = 32) => crypto.randomBytes(bytes).toString('base64url');
 
 /** Drops anything expired. Cheap enough to run on every touch. */
 function sweep(): void {
+  // Pick up out-of-process changes (admin console revokes) before deciding.
+  load();
   const now = Date.now();
   for (const [k, v] of codes) if (v.expires_at < now) codes.delete(k);
   let changed = false;
