@@ -122,12 +122,19 @@ Or edit `~/Library/Application Support/Claude/claude_desktop_config.json` direct
 
 ### claude.ai and Claude Cowork
 
-Settings -> Connectors -> **Add custom connector**, with the `/mcp` URL and the
-`Authorization: Bearer <ZW_MCP_TOKEN>` header.
+Settings -> Connectors -> **Add custom connector**:
+
+- **URL**: `https://zws-mac-mini.tail9e5da0.ts.net/mcp`
+- **Header**: `Authorization: Bearer <ZW_MCP_TOKEN>`
 
 Both connect from Anthropic's servers, not from your browser or machine, so they
 need a **public HTTPS URL**. A LAN IP, `*.local` name, `localhost`, or a
-tailnet-only Serve address will not work for them -- see **Remote access**.
+tailnet-only Tailscale *Serve* address will not work for them -- only *Funnel*
+(or another public tunnel) does. See **Remote access**.
+
+Verified reachable from outside the tailnet: `GET /health` returns 200 from
+Anthropic's infrastructure, `POST /mcp` without a bearer returns 401, and with one
+returns all 84 tools. Port 8788 (the admin console) is deliberately NOT funnelled.
 
 ### Your own app (Claude Agent SDK)
 
@@ -182,18 +189,53 @@ request gets a `401`.
 
 Set `HOST=127.0.0.1` to restrict it to this machine again.
 
-### Public HTTPS (for claude.ai / Cowork)
+### Public HTTPS (for claude.ai / Cowork) -- Tailscale Funnel
 
-Do **not** raw port-forward. Use a tunnel that terminates TLS for you:
+Do **not** raw port-forward. This host uses Tailscale Funnel, which terminates TLS
+and gives a real public hostname:
+
+```
+https://zws-mac-mini.tail9e5da0.ts.net/mcp
+```
+
+Setup, for reference or rebuilding:
 
 ```bash
-# Cloudflare Tunnel -- no account needed for a quick ephemeral URL
-brew install cloudflared
-cloudflared tunnel --url http://127.0.0.1:8787
+brew install tailscale        # CLI formula; the GUI cask needs an interactive sudo password
 
-# or Tailscale Funnel, if Tailscale is available to you
-tailscale funnel --bg 8787
+# Userspace mode needs no root. Funnel works fine this way.
+tailscaled --tun=userspace-networking \
+  --socket=$HOME/.tailscale/tailscaled.sock \
+  --statedir=$HOME/.tailscale/state &
+
+tailscale --socket=$HOME/.tailscale/tailscaled.sock up --hostname=zws-mac-mini
+tailscale --socket=$HOME/.tailscale/tailscaled.sock funnel --bg 8787
 ```
+
+Two things must be enabled in the Tailscale **admin console** first, or the funnel
+command hangs silently with no error:
+
+1. **HTTPS Certificates** -- https://login.tailscale.com/admin/dns
+2. **The `funnel` node attribute** -- https://login.tailscale.com/admin/acls:
+
+```json
+"nodeAttrs": [
+  {"target": ["autogroup:member"], "attr": ["funnel"]}
+]
+```
+
+Check both landed with:
+
+```bash
+tailscale --socket=$HOME/.tailscale/tailscaled.sock status --json \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); \
+      print('funnel:', any('funnel' in str(c).lower() for c in (d['Self'].get('CapMap') or {}))); \
+      print('certs :', d.get('CertDomains'))"
+```
+
+**The daemon does not survive a reboot** -- it runs as a background user process,
+not a service. Relaunch the `tailscaled` line above after a restart, or add a
+launchd agent for it alongside the other two.
 
 Tunnel **8787 only**. Never tunnel 8788: the admin console has no password and can
 send and void envelopes.

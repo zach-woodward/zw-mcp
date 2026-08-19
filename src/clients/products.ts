@@ -76,13 +76,14 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     id: 'clm',
     toolPrefix: 'clm',
     label: 'CLM API',
-    // CLM (SpringCM) lives on a per-account host discovered at runtime; see
-    // src/clients/clm.ts. This placeholder is replaced in Phase 2.
+    // CLM (SpringCM) lives on a per-account host discovered at runtime -- this
+    // value is only a fallback for display; src/clients/clm.ts does the real
+    // discovery and owns every CLM request.
     baseUri: (env) =>
       env === 'prod' ? 'https://api-na11.springcm.com' : 'https://apiuatna11.springcm.com',
-    pathHint: '/v2/{clmAccountId}/documents',
-    status: 'unverified',
-    specSource: 'unverified',
+    pathHint: '/v2/{accountId}/documents',
+    status: 'ga',
+    specSource: 'hand-built',
     docsUrl: 'https://developers.docusign.com/docs/clm-api/',
   },
   maestro: {
