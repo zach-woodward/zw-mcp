@@ -23,7 +23,7 @@ VERIFIED 2026-08-19 https://developers.docusign.com/platform/api-endpoint-base-p
 | Rooms | `https://demo.rooms.docusign.com/restapi/v2/` | `https://rooms.docusign.com/restapi/v2/` |
 | Web Forms | `https://apps-d.docusign.com/` | `https://apps.docusign.com/` |
 | Workspaces | `https://api-d.docusign.com/v1/` | `https://api.docusign.com/v1/` |
-| CLM | see CLM API 101 (per-account SpringCM host) | see CLM API 101 |
+| CLM | discovered per account, e.g. `https://apiuatna11.springcm.com` | discovered per account |
 | Trust Records | NOT in the table -- verify before Phase 3 | -- |
 
 `{server}` in production is the account's data center (NA2, EU, CA, ...). Never
@@ -147,3 +147,65 @@ Note the repo mixes Swagger 2.0 and OpenAPI 3.x. `openapi-typescript` only reads
 3.x, so generating types across the whole set needs a `swagger2openapi` conversion
 step first. Deferred: the curated tools hand-type their own narrow projections,
 and the value of generated types is mostly for future curation work, not runtime.
+
+
+---
+
+## CLM specifics (verified against a live UAT account)
+
+VERIFIED 2026-08-19 against Woodward Systems (`b99e0abc-…`), UAT.
+
+CLM does not behave like the other products and does not use the shared client.
+
+**Discovery.** `GET https://authuat.springcm.com/api/v2/{accountId}/account`
+(prod: `auth.springcm.com`) with a token carrying `spring_read`/`spring_write`.
+Live response keys:
+
+```
+Id, ApiBaseUrl, ApiBaseDownloadUrl, ApiBaseUploadUrl, SftpUrl,
+WebLandingPageUrl, OfficeAddInUrl, DocumentPreviewUrl, EformUrl
+```
+
+There is **no** `TaskApiUrl`: task endpoints live on `ApiBaseUrl`. There is also
+no version field in the response.
+
+**Version segment is `v2`.** The CLM swagger declares version v2 with paths
+rooted at `/{accountId}/...`, so a full URL is
+`{ApiBaseUrl}/v2/{accountId}/{resource}`. Empirically `v20180601`, `v201411` and
+`v20160301` all 404 on this account; only `v2` routes.
+
+**"Production account" in the docs means entitlement, not environment.** Every
+CLM docs page says "Developing with the CLM API is only available for CLM
+customers with a production account." A CLM-provisioned account works fine in
+UAT. A 401 from discovery means the token lacks `spring_read`/`spring_write`.
+
+**Path corrections over the SOAP-migration table**, which is misleading:
+
+| Operation | SOAP-migration table says | Actually |
+| --- | --- | --- |
+| Folder by path | `GET /folders?path=` | `GET /folders/path?path=` (`/folders` is POST-only, so the former 405s) |
+| System folder | not listed | `GET /folders/type?systemFolder=root\|home\|other sources\|salesforce` |
+| Attribute groups | `GET /accounts/current/attributegroups` | `GET /attributegroups` (`/accounts/current` 404s) |
+
+**Objects carry `Uid`, not `Id`.** Folder objects expose neither -- their id is
+only the tail of `Href`. `idFromHref()` in `src/tools/clm.ts` handles both.
+
+**Collections** use `pageSortParams.*` query params (`limit`, `offset`, `filter`,
+`sortProperty`, `sortDirection`, `filterExact`, `caseInsensitive`). `filter` does
+a contains-match by default and takes `Name=value` pairs.
+
+**`expand` values are capitalised** (`AttributeGroups`, `Lock`, `Versions`,
+`ParentFolder`, `Path`, `HistoryItems`). Lowercase is ignored. Note that `expand`
+does NOT populate children on the `/folders/path` and `/folders/type` lookups --
+child folders always need a second call to `/folders/{id}/folders`.
+
+### Unresolved: full-text search body schema
+
+`POST /{accountId}/documentsearchtasks` returns
+`422 "No valid search parameters were found"` for every body shape tried
+(`Query`, `FullText`, `Keyword`, `Name`, `DocumentName`, `SearchText`,
+`FullTextSearch`, nested variants, folder-scoped variants). The swagger documents
+the endpoint but not its request schema, and the Developer Center does not
+publish it. `clm_search_documents` therefore does a NAME search over the folder
+tree using documented collection filtering, and says so in its description.
+Full-text search remains reachable via `clm_raw_request` once the schema is known.

@@ -18,16 +18,13 @@ import { logger } from '../lib/logger.js';
  *   Prod https://auth.springcm.com/api/v2/{accountId}/account
  *
  * ---------------------------------------------------------------------------
- * UNVERIFIED -- this whole module is written from the documentation and has NOT
- * been exercised against a live account. The Woodward Systems demo account
- * cannot reach CLM: the UAT discovery endpoint answers 401 Access Denied and the
- * `spring_read` / `spring_write` scopes are not grantable there. This matches the
- * banner on every CLM docs page: "Developing with the CLM API is only available
- * for CLM customers with a production account."
+ * VERIFIED 2026-08-19 against the Woodward Systems UAT account (b99e0abc-…).
+ * Discovery returns 200 once the token carries `spring_read`/`spring_write`.
  *
- * Before trusting anything here, run it against a CLM-entitled account and
- * replace this banner with a VERIFIED stamp.
- * CHECKED 2026-08-19 https://developers.docusign.com/docs/clm-api/clm101/
+ * Note for anyone reading the CLM docs: every CLM page says "Developing with the
+ * CLM API is only available for CLM customers with a production account". That is
+ * about entitlement, not environment -- a CLM-provisioned account works fine in
+ * UAT, as this one does. An earlier 401 here was purely a missing scope.
  * ---------------------------------------------------------------------------
  */
 
@@ -43,8 +40,13 @@ export interface ClmEndpoints {
 
 let cached: ClmEndpoints | null = null;
 
-/** Default version segment when discovery does not supply one. */
-const DEFAULT_VERSION = 'v20180601';
+/**
+ * CLM's API version segment. Discovery does not return one, and the CLM swagger
+ * declares version "v2" with paths rooted at /{accountId}/...
+ * VERIFIED 2026-08-19: /v2/{accountId}/attributegroups -> 200 on this account,
+ * while v20180601 / v201411 / v20160301 all 404.
+ */
+const DEFAULT_VERSION = 'v2';
 
 function firstString(obj: Record<string, unknown>, keys: string[]): string | undefined {
   for (const k of keys) {
@@ -57,9 +59,10 @@ function firstString(obj: Record<string, unknown>, keys: string[]): string | und
 export class ClmUnavailableError extends Error {
   constructor(status: number, detail: string) {
     super(
-      `CLM is not reachable for this account (discovery returned ${status}). ` +
-        `The CLM API requires a CLM-entitled account and the spring_read / spring_write ` +
-        `scopes; developer/demo accounts generally cannot use it. Detail: ${detail.slice(0, 300)}`,
+      `CLM discovery failed (${status}). Most often this means the access token is ` +
+        `missing the spring_read / spring_write scopes -- run \`npm run consent -- ` +
+        `--products clm\` and re-grant. It can also mean the account is not ` +
+        `CLM-provisioned. Detail: ${detail.slice(0, 300)}`,
     );
     this.name = 'ClmUnavailableError';
   }
@@ -91,16 +94,23 @@ export async function getClmEndpoints(): Promise<ClmEndpoints> {
     throw new ClmUnavailableError(res.statusCode, 'discovery returned HTML, not JSON');
   }
 
-  const object = firstString(data, ['ObjectApiUrl', 'ApiUrl', 'objectApiUrl']);
+  // Live discovery payload keys (VERIFIED 2026-08-19):
+  //   ApiBaseUrl, ApiBaseDownloadUrl, ApiBaseUploadUrl, SftpUrl,
+  //   WebLandingPageUrl, DocumentPreviewUrl, EformUrl, Id
+  // There is no separate Task API host: tasks live on ApiBaseUrl.
+  const object = firstString(data, ['ApiBaseUrl', 'ObjectApiUrl', 'ApiUrl']);
   if (!object) {
     throw new ClmUnavailableError(200, `discovery JSON had no API URL: ${text.slice(0, 200)}`);
   }
 
   cached = {
     objectApi: object.replace(/\/+$/, ''),
-    taskApi: (firstString(data, ['TaskApiUrl', 'taskApiUrl']) ?? object).replace(/\/+$/, ''),
-    uploadApi: (firstString(data, ['UploadApiUrl', 'ContentUploadUrl']) ?? object).replace(/\/+$/, ''),
-    downloadApi: (firstString(data, ['DownloadApiUrl', 'ContentDownloadUrl']) ?? object).replace(
+    taskApi: object.replace(/\/+$/, ''),
+    uploadApi: (firstString(data, ['ApiBaseUploadUrl', 'UploadApiUrl']) ?? object).replace(
+      /\/+$/,
+      '',
+    ),
+    downloadApi: (firstString(data, ['ApiBaseDownloadUrl', 'DownloadApiUrl']) ?? object).replace(
       /\/+$/,
       '',
     ),

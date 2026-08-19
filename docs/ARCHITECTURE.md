@@ -281,7 +281,7 @@ tables in [`specs/BASE_PATHS.md`](../specs/BASE_PATHS.md).
 | --- | --- | --- | ---: | :---: | --- | --- |
 | eSignature v2.1 | `{base_uri}/restapi` | `signature` | 13 | ✅ | vendored OpenAPI | GA -- **verified live** |
 | Navigator | `api-d.docusign.com/v1` | `adm_store_unified_repo_read` | 5 | ✅ | vendored OpenAPI 3.1 | beta -- **verified live** |
-| CLM | per-account SpringCM host (discovered) | `spring_read`, `spring_write`, `content` | 12 | ✅ | hand-built (no published spec) | **UNVERIFIED -- needs a CLM-entitled production account** |
+| CLM | discovered per account (`apiuatna11.springcm.com`) | `spring_read`, `spring_write`, `content` | 13 | ✅ | hand-built from CLM swagger | GA -- **verified live** |
 | Maestro (= Workflow Builder) | `api-d.docusign.com/v1` | `aow_manage` | 8 | ✅ | vendored OpenAPI 3.1 | beta -- **verified live** |
 | Web Forms | `apps-d.docusign.com/api/webforms` | `webforms_read`, `webforms_instance_read/write` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
 | Rooms v2 | `demo.rooms.docusign.com/restapi` | `dtr.*`, `room_forms` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
@@ -304,17 +304,31 @@ consent to it, and because a consent grant is all-or-nothing its presence made
 every Navigator call fail with `consent_required`. `npm run scopecheck` probes
 each scope individually and is the fastest way to find such a scope.
 
-**CLM cannot be verified on a demo account.** Every CLM docs page carries the
-banner "Developing with the CLM API is only available for CLM customers with a
-production account", and the behaviour matches: the UAT discovery endpoint
-(`authuat.springcm.com/api/v2/{accountId}/account`) answers `401 Access Denied`,
-and `spring_read` / `spring_write` are not grantable. The twelve `clm_*` tools are
-written from the documented Object/Task/Content surfaces and marked UNVERIFIED in
-`src/clients/clm.ts`. CLM is also the one product that does not use the shared
-client, because its hosts are data-center specific, discovered at runtime, and
-different per surface (Object / Task / Content-upload / Content-download).
+**CLM works in UAT and is verified live.** The docs banner "only available for CLM
+customers with a production account" describes *entitlement*, not environment -- a
+CLM-provisioned account works in UAT. An initial `401 Access Denied` from discovery
+was purely a missing scope: `consent_required` on `spring_read`/`spring_write` means
+*not yet consented*, not *not entitled*, and reading it as the latter was wrong.
 
-**Two live-vs-spec divergences, both caught by calling the API:**
+CLM is the one product that does not use the shared client. Its hosts are
+data-center specific and discovered at runtime, and differ per surface (Object and
+Task share `ApiBaseUrl`; upload and download each get their own). Its paths also
+carry a `/{version}/{accountId}` prefix, version `v2`. Because of that,
+`clm_raw_request` is routed through the CLM dispatcher rather than the shared one
+-- otherwise the escape hatch would silently target the wrong URL.
+
+See `specs/BASE_PATHS.md` for the full CLM section: discovery response keys, the
+path corrections over Docusign's SOAP-migration table, `Uid`-not-`Id`, the
+`pageSortParams.*` collection convention, and capitalised `expand` values.
+
+**One CLM gap remains open.** `POST /documentsearchtasks` rejects every request
+body shape tried with `422 "No valid search parameters were found"`, and neither
+the swagger nor the Developer Center publishes its schema. `clm_search_documents`
+therefore does a name search over the folder tree using documented collection
+filtering, and its tool description says so plainly rather than implying
+full-text coverage it does not have.
+
+**Live-vs-spec divergences, all caught by calling the API:**
 
 1. Maestro's OpenAPI models a workflow instance as
    `instance_name` / `instance_state` / `workflow_id`. The live API returns
@@ -323,6 +337,14 @@ different per surface (Object / Task / Content-upload / Content-download).
 2. Navigator sorts and filters on different names for the same field: filtering
    uses `provisions.expiration_date`, sorting uses `expiration_date`. Sorting by
    the filter name returns a 400 that helpfully lists the legal sort fields.
+3. CLM's SOAP-migration table gives `GET /folders?path=`; the real route is
+   `GET /folders/path?path=` (`/folders` accepts only POST, so the documented
+   form returns 405).
+
+**A caveat on `npm run scopecheck`:** DocuSign silently ignores unknown scopes --
+a made-up scope string returns a token just as happily as a real one. So a ✅ does
+not prove a scope is real or effective; only `consent_required` proves a scope is
+recognised. The tool is reliable in the negative direction only.
 
 > Update this file at the end of every phase. The diagrams above are the contract;
 > if the code stops matching them, the code or the diagram is wrong.

@@ -6,6 +6,7 @@
 import { loadConfig } from '../src/lib/config.js';
 import { getAccessToken, getAccount, tokenStatus } from '../src/auth/jwt.js';
 import { apiRequest } from '../src/clients/base.js';
+import { clmRequest } from '../src/clients/clm.js';
 import { PRODUCTS, type ProductId } from '../src/clients/products.js';
 
 interface Probe {
@@ -21,6 +22,8 @@ const PROBES: Partial<Record<ProductId, Probe>> = {
     path: '/v2.1/accounts/{accountId}',
     proves: 'account read',
   },
+  // CLM has its own client: runtime-discovered, data-center-specific hosts.
+  clm: { path: '/attributegroups', proves: 'discovery + attribute groups' },
   navigator: {
     path: '/v1/accounts/{accountId}/agreements',
     query: { limit: 1 },
@@ -79,7 +82,11 @@ async function main(): Promise<void> {
       continue;
     }
     try {
-      await apiRequest(id, { method: 'GET', path: probe.path, query: probe.query });
+      if (id === 'clm') {
+        await clmRequest({ method: 'GET', path: probe.path, query: probe.query });
+      } else {
+        await apiRequest(id, { method: 'GET', path: probe.path, query: probe.query });
+      }
       console.log(`${pad(id, 16)} ${pad(probe.proves, 30)} ✅`);
     } catch (err) {
       failures += 1;

@@ -6,24 +6,54 @@ import { guard, ok, pick, saveDownload } from '../lib/respond.js';
 /**
  * CLM curated tools.
  *
- * UNVERIFIED against a live account -- see the banner in src/clients/clm.ts.
- * Paths follow the documented Object/Task/Content API surfaces and are relative
- * to `/{version}/{accountId}`.
- * CHECKED 2026-08-19 https://developers.docusign.com/docs/clm-api/clm.cm/clm101/migrating-soap-to-rest/
+ * Paths are relative to `/{version}/{accountId}` and taken from the CLM swagger
+ * (declared version v2), not from the SOAP-migration table -- the two disagree.
+ * Notably folder lookup by path is `/folders/path?path=`, NOT `/folders?path=`;
+ * the latter is a 405 because /folders only accepts POST.
+ * VERIFIED 2026-08-19 against the Woodward Systems UAT account (b99e0abc-…).
  */
 
+/**
+ * Real CLM document fields (VERIFIED 2026-08-19 against a live document object).
+ * Note `Uid`, not `Id` -- CLM exposes the identifier as Uid and embeds it in Href.
+ */
 const DOC_KEYS = [
-  'Id',
+  'Uid',
   'Name',
-  'Href',
+  'Extension',
   'CreatedDate',
   'UpdatedDate',
+  'CreatedBy',
   'PageCount',
   'NativeFileSize',
+  'Href',
   'DownloadDocumentHref',
 ] as const;
 
-const FOLDER_KEYS = ['Id', 'Name', 'Href', 'CreatedDate', 'UpdatedDate', 'ParentFolder'] as const;
+const FOLDER_KEYS = ['Name', 'Href', 'CreatedDate', 'UpdatedDate'] as const;
+
+/**
+ * CLM objects do not carry an `Id` field -- the id lives in the `Href` tail:
+ *   https://apiuatna11.springcm.com/v2/{account}/folders/{id}
+ * VERIFIED 2026-08-19 against live folder + workflow-definition payloads.
+ */
+function idFromHref(obj: Record<string, unknown> | undefined): string | undefined {
+  if (typeof obj?.Uid === 'string' && obj.Uid) return obj.Uid;
+  const href = obj?.Href;
+  if (typeof href !== 'string') return undefined;
+  const tail = href.split('/').pop();
+  return tail && tail.length > 8 ? tail : undefined;
+}
+
+/** Resolves the account's root folder id, used as the default search scope. */
+async function rootFolderId(): Promise<string | undefined> {
+  const root = await clmRequest<Record<string, unknown>>({
+    method: 'GET',
+    path: '/folders/type',
+    query: { systemFolder: 'root' },
+  });
+  return idFromHref(root);
+}
 
 /** CLM wraps collections as { Items: [...], Total, Offset, Limit }. */
 interface ClmCollection<T = Record<string, unknown>> {
@@ -51,26 +81,86 @@ export function registerClmTools(server: McpServer): void {
   server.registerTool(
     'clm_search_documents',
     {
-      title: 'Search CLM documents',
+      title: 'Find CLM documents by name',
       description:
-        'Full-text search across CLM documents. CLM runs search as an asynchronous task: this ' +
-        'creates a documentsearchtask and returns it, including the Href to poll for results. ' +
-        'For a document whose exact path you already know, clm_get_document with a path is faster.',
+        'Find documents in CLM whose name contains the given text, walking down from a folder ' +
+        '(the account root by default). Use to locate a contract before fetching, downloading ' +
+        'or reading its attributes.\n\n' +
+        'NOTE: this is a NAME search over the folder tree, not a full-text content search. ' +
+        'CLM full-text search goes through the asynchronous documentsearchtasks endpoint, ' +
+        'whose request-body schema Docusign does not publish -- reach it with clm_raw_request ' +
+        'if you need content search.',
       inputSchema: {
-        query: z.string().describe('Full-text search string.'),
-        limit: z.number().int().min(1).max(100).default(20),
+        name_contains: z.string().describe('Substring to match against document names.'),
+        folder_id: z
+          .string()
+          .optional()
+          .describe('Folder to search from. Defaults to the account root.'),
+        recursive: z.boolean().default(true).describe('Descend into sub-folders.'),
+        max_folders: z
+          .number()
+          .int()
+          .min(1)
+          .max(300)
+          .default(60)
+          .describe('Cap on folders visited, so a big repository cannot run away.'),
+        limit: z.number().int().min(1).max(200).default(50),
       },
     },
-    guard(async (args) =>
-      ok(
-        await clmRequest({
-          surface: 'task',
-          method: 'POST',
-          path: '/documentsearchtasks',
-          body: { Query: args.query, PageSize: args.limit },
-        }),
-      ),
-    ),
+    guard(async (args) => {
+      const start = args.folder_id ?? (await rootFolderId());
+      if (!start) throw new Error('could not resolve a starting folder');
+
+      const matches: Array<Record<string, unknown>> = [];
+      const queue: string[] = [start];
+      const seen = new Set<string>();
+      let visited = 0;
+      let truncated = false;
+
+      while (queue.length && visited < args.max_folders && matches.length < args.limit) {
+        const folderId = queue.shift()!;
+        if (seen.has(folderId)) continue;
+        seen.add(folderId);
+        visited += 1;
+
+        // Collection filtering is a documented Object API feature: filters do a
+        // "contains" match by default, which is exactly the semantics we want.
+        const docs = await clmRequest<ClmCollection>({
+          method: 'GET',
+          path: `/folders/${folderId}/documents`,
+          query: {
+            'pageSortParams.filter': `Name=${args.name_contains}`,
+            'pageSortParams.limit': Math.min(100, args.limit - matches.length),
+          },
+        }).catch(() => ({ Items: [] }) as ClmCollection);
+
+        for (const d of docs.Items ?? []) {
+          matches.push({ id: idFromHref(d), folder_id: folderId, ...pick(d, DOC_KEYS) });
+          if (matches.length >= args.limit) break;
+        }
+
+        if (args.recursive && visited < args.max_folders) {
+          const kids = await clmRequest<ClmCollection>({
+            method: 'GET',
+            path: `/folders/${folderId}/folders`,
+            query: { 'pageSortParams.limit': 100 },
+          }).catch(() => ({ Items: [] }) as ClmCollection);
+          for (const f of kids.Items ?? []) {
+            const id = idFromHref(f);
+            if (id && !seen.has(id)) queue.push(id);
+          }
+        }
+      }
+      if (queue.length || matches.length >= args.limit) truncated = true;
+
+      return ok({
+        name_contains: args.name_contains,
+        folders_visited: visited,
+        matched: matches.length,
+        truncated,
+        documents: matches,
+      });
+    }),
   );
 
   server.registerTool(
@@ -87,7 +177,10 @@ export function registerClmTools(server: McpServer): void {
         expand: z
           .string()
           .optional()
-          .describe('Comma-separated related data to inline, e.g. "attributegroups,lock,versions".'),
+          .describe(
+            'Comma-separated related data to inline. CLM expects capitalised names: ' +
+              'AttributeGroups, Lock, Versions, ParentFolder, Path, HistoryItems.',
+          ),
         verbose: z.boolean().default(false),
       },
     },
@@ -176,34 +269,60 @@ export function registerClmTools(server: McpServer): void {
   server.registerTool(
     'clm_list_folders',
     {
-      title: 'List CLM folders',
+      title: 'Browse CLM folders',
       description:
-        'List the sub-folders of a CLM folder, or resolve a folder by path. Omit both arguments ' +
-        'to start from the account root. Use to navigate the CLM filing structure before ' +
-        'uploading or searching.',
+        'Navigate the CLM filing structure. Give a folder_id to list its sub-folders, a path ' +
+        'to resolve a folder by its full path, or a system_folder (root, home, "other sources", ' +
+        'salesforce) to jump to a well-known starting point. With no arguments it resolves the ' +
+        'account root, which is where you start when you do not yet know any folder ids.',
       inputSchema: {
         folder_id: z.string().optional(),
         path: z.string().optional().describe('Full folder path, e.g. "/Contracts/Acme".'),
+        system_folder: z
+          .enum(['root', 'home', 'other sources', 'salesforce'])
+          .optional()
+          .describe('Jump to a system folder.'),
+        limit: z.number().int().min(1).max(200).default(50),
         verbose: z.boolean().default(false),
       },
     },
     guard(async (args) => {
-      if (args.path) {
-        const folder = await clmRequest<Record<string, unknown>>({
-          method: 'GET',
-          path: '/folders',
-          query: { path: args.path },
-        });
-        return ok(args.verbose ? folder : pick(folder, FOLDER_KEYS));
+      // Resolve which folder we are listing: an explicit id, a path, a system
+      // folder, or (default) the account root.
+      let folderId = args.folder_id;
+      let folder: Record<string, unknown> | undefined;
+      if (!folderId) {
+        folder = args.path
+          ? await clmRequest<Record<string, unknown>>({
+              method: 'GET',
+              path: '/folders/path',
+              query: { path: args.path },
+            })
+          : await clmRequest<Record<string, unknown>>({
+              method: 'GET',
+              path: '/folders/type',
+              query: { systemFolder: args.system_folder ?? 'root' },
+            });
+        // `expand=Folders` does NOT populate children on these lookups, so the
+        // child listing is always a second call against the resolved id.
+        folderId = idFromHref(folder);
+        if (!folderId) return ok({ folder, child_folders: [], note: 'no folder id in Href' });
       }
+
       const res = await clmRequest<ClmCollection>({
         method: 'GET',
-        path: args.folder_id ? `/folders/${args.folder_id}/folders` : '/folders',
+        path: `/folders/${folderId}/folders`,
+        query: { 'pageSortParams.limit': args.limit },
       });
       const items = res.Items ?? [];
       return ok({
+        folder: folder ? pick(folder, FOLDER_KEYS) : undefined,
+        folder_id: folderId,
         total: res.Total ?? items.length,
-        folders: args.verbose ? items : items.map((f) => pick(f, FOLDER_KEYS)),
+        folders: items.map((f) => ({
+          id: idFromHref(f),
+          ...(args.verbose ? f : pick(f, FOLDER_KEYS)),
+        })),
       });
     }),
   );
@@ -223,12 +342,12 @@ export function registerClmTools(server: McpServer): void {
       const res = await clmRequest<ClmCollection>({
         method: 'GET',
         path: `/folders/${args.folder_id}/documents`,
-        query: { limit: args.limit },
+        query: { 'pageSortParams.limit': args.limit },
       });
       const items = res.Items ?? [];
       return ok({
         total: res.Total ?? items.length,
-        documents: args.verbose ? items : items.map((d) => pick(d, DOC_KEYS)),
+        documents: items.map((d) => ({ id: idFromHref(d), ...(args.verbose ? d : pick(d, DOC_KEYS)) })),
       });
     }),
   );
@@ -248,7 +367,7 @@ export function registerClmTools(server: McpServer): void {
         await clmRequest({
           method: 'GET',
           path: `/documents/${args.document_id}`,
-          query: { expand: 'attributegroups' },
+          query: { expand: 'AttributeGroups' },
         }),
       ),
     ),
@@ -278,6 +397,30 @@ export function registerClmTools(server: McpServer): void {
         }),
       ),
     ),
+  );
+
+  server.registerTool(
+    'clm_list_workflow_definitions',
+    {
+      title: 'List CLM workflow definitions',
+      description:
+        'List the CLM workflows available to start, with their names. clm_launch_workflow ' +
+        'starts a workflow BY NAME, so call this first to get the exact name string.',
+      inputSchema: { verbose: z.boolean().default(false) },
+    },
+    guard(async (args) => {
+      const res = await clmRequest<ClmCollection>({
+        method: 'GET',
+        path: '/workflowdefinitions',
+      });
+      const items = res.Items ?? [];
+      return ok({
+        total: res.Total ?? items.length,
+        workflows: args.verbose
+          ? items
+          : items.map((w) => ({ id: idFromHref(w), ...pick(w, ['Name', 'Href'] as const) })),
+      });
+    }),
   );
 
   server.registerTool(

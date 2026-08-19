@@ -57,6 +57,9 @@ npm run scopecheck        # probes every scope individually, ✅/❌ per scope
 ```
 
 That pinpoints the offending scope instead of guessing at a whole product's set.
+Read it in the negative direction only: DocuSign silently ignores unknown scopes,
+so a ✅ does not prove a scope is real -- but `consent_required` does prove it is
+recognised and simply not yet granted.
 Then drop it (or the product) from `DS_PRODUCTS` and re-run consent. This is not
 hypothetical: Navigator's documented-best-practice `models_read` scope is not
 grantable on the Woodward Systems demo account, and including it broke every
@@ -187,7 +190,7 @@ design so a monitor can poll it; it never returns the token itself.
 | `npm run stdio` | stdio transport, for MCP Inspector / local debugging |
 | `npm run consent` | Print the one-time DocuSign consent URL |
 | `npm run smoke` | One cheap read per enabled product, ✅/❌ table |
-| `npm run scopecheck` | Probe each OAuth scope individually to find one the account cannot grant |
+| `npm run scopecheck` | Probe each OAuth scope individually to find one the account has not granted |
 | `npm run typecheck` | `tsc --noEmit` |
 
 ## Repository layout

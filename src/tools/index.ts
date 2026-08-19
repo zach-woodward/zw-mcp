@@ -61,8 +61,6 @@ export const TOOL_MODULES: Partial<Record<ProductId, ToolModule>> = {
     ],
   },
 
-  // CLM tools are written from the docs but UNVERIFIED -- no demo account can
-  // reach the CLM API. See the banner in src/clients/clm.ts.
   clm: {
     register: registerClmTools,
     curated: [
@@ -73,6 +71,7 @@ export const TOOL_MODULES: Partial<Record<ProductId, ToolModule>> = {
       'clm_upload_document',
       'clm_list_folders',
       'clm_list_folder_documents',
+      'clm_list_workflow_definitions',
       'clm_get_attributes',
       'clm_set_attributes',
       'clm_launch_workflow',
