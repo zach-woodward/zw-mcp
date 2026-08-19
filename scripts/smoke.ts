@@ -31,11 +31,11 @@ const PROBES: Partial<Record<ProductId, Probe>> = {
     proves: 'workflow list',
   },
   webforms: {
-    path: '/api/webforms/v1.1/accounts/{accountId}/forms',
+    path: '/v1.1/accounts/{accountId}/forms',
     query: { limit: 1 },
     proves: 'form list',
   },
-  rooms: { path: '/accounts/{accountId}/rooms', query: { count: 1 }, proves: 'room list' },
+  rooms: { path: '/v2/accounts/{accountId}/rooms', query: { count: 1 }, proves: 'room list' },
   click: { path: '/v1/accounts/{accountId}/clickwraps', proves: 'clickwrap list' },
   monitor: { path: '/stream', query: { limit: 1 }, proves: 'event stream' },
   notary: { path: '/restapi/v1/accounts/{accountId}/notary/journals', proves: 'notary journal' },

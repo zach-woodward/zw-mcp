@@ -79,3 +79,71 @@ VERIFIED 2026-08-19 Maestro API OpenAPI (beta) v1.0.7, servers `api-d.docusign.c
 Note: triggering is a two-step dance -- GET trigger-requirements returns a `url`
 carrying `mtid`/`mtsec` query params minted at publish time, and the POST goes to
 *that* URL, not to the `/actions/trigger` path directly.
+
+---
+
+## Findings from the vendored specs (2026-08-19)
+
+Downloaded from https://github.com/docusign/OpenAPI-Specifications. These settle
+three open questions from the build brief.
+
+### 1. Click's base path is `/clickapi`, not `/restapi`
+
+The docs base-path table lists Click under `https://demo.docusign.net/restapi/`.
+The spec disagrees and the spec is specific:
+
+```
+click.rest.swagger-v2.json:  host = www.demo.docusign.net,  basePath = /clickapi
+                             paths = /v1/accounts/{accountId}/clickwraps
+```
+
+`src/clients/products.ts` uses `{base_uri}/clickapi`. The docs table is treated as
+imprecise here -- it groups Click with eSignature because they share a host.
+
+### 2. "Workflow Builder API" is Maestro renamed, not a distinct API
+
+The brief asked to verify this. Diffing the two specs:
+
+- `maestro.rest.swagger-v1.0.0.json` -- title "Maestro API", version 1.0.7
+- `workflowbuilder.rest.swagger-1.0.0.json` -- title "Workflow Builder API", version 1.0.0
+
+Both declare **the same 8 paths** on **the same servers** (`api.docusign.com`,
+`api-d.docusign.com`), with zero divergence. So ZW MCP ships one product entry,
+`maestro`, and no separate `workflowbuilder` product. Revisit only if the two
+specs ever diverge.
+
+### 3. Monitor: the spec and the docs table describe different API generations
+
+| Source | Host | Path |
+| --- | --- | --- |
+| Docs base-path table | `lens-d.docusign.net/api/v2.0/datasets/monitor` | `/stream` |
+| `monitor.rest.swagger-v2.0.json` | `api.docusign.com` (basePath `/`) | `/v1/organizations/{organizationId}/stream` |
+
+Unresolved. The registry currently uses the docs table (lens-d) and Monitor is
+marked `unverified`; settle it with a live call in Phase 3.
+
+### Vendored spec inventory
+
+| File | Version | Paths | Product |
+| --- | --- | ---: | --- |
+| `esignature.rest.swagger-v2.1.json` | Swagger 2.0 | 213 | eSignature |
+| `admin.rest.swagger-v2.1.json` | Swagger 2.0 | 53 | Admin (basePath `/Management`) |
+| `rooms.rest.swagger-v2.json` | Swagger 2.0 | 70 | Rooms (basePath `/restapi`, paths `/v2/...`) |
+| `click.rest.swagger-v2.json` | Swagger 2.0 | 12 | Click |
+| `webforms.rest.swagger-v1.1.0.json` | Swagger 2.0 | 5 | Web Forms (basePath `/api/webforms`) |
+| `monitor.rest.swagger-v2.0.json` | Swagger 2.0 | 1 | Monitor |
+| `navigator.rest.swagger.json` | OpenAPI 3.1.0 | 5 | Navigator |
+| `maestro.rest.swagger-v1.0.0.json` | OpenAPI 3.1.0 | 8 | Maestro |
+| `workflowbuilder.rest.swagger-1.0.0.json` | OpenAPI 3.0.3 | 8 | (duplicate of Maestro) |
+| `workspaces.rest.swagger.json` | OpenAPI 3.0.4 | 16 | Workspaces |
+| `connected-fields.rest.swagger.json` | OpenAPI 3.1.0 | 1 | Connected Fields |
+| `agreementmanager.rest.swagger-1.0.0.json` | OpenAPI 3.0.3 | 7 | Agreement Manager |
+| `connect.schema-v2.json` | JSON Schema | -- | Connect webhook payloads |
+
+**No spec is published for CLM, Notary, or Trust Records** -- those stay hand-built
+from the Developer Center docs.
+
+Note the repo mixes Swagger 2.0 and OpenAPI 3.x. `openapi-typescript` only reads
+3.x, so generating types across the whole set needs a `swagger2openapi` conversion
+step first. Deferred: the curated tools hand-type their own narrow projections,
+and the value of generated types is mostly for future curation work, not runtime.
