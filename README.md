@@ -170,6 +170,39 @@ launchctl bootout gui/$(id -u)/com.zw.mcp
 
 Logs land in `logs/zw-mcp.log` (structured, redacted) plus `logs/launchd.{out,err}.log`.
 
+## Admin console
+
+A local operations console for seeing what exists, exercising it, and tracking
+what is left:
+
+```bash
+npm run dev      # terminal 1 -- ZW MCP on :8787
+npm run admin    # terminal 2 -- console on :8788
+open http://127.0.0.1:8788
+```
+
+Four tabs:
+
+- **Status** -- server health, token expiry, granted scopes, resolved account and
+  organization, plus a per-product card. "Probe every product" fires one cheap
+  read-only tool per API and turns each card green or red, which is `npm run smoke`
+  with a UI.
+- **Tools** -- every registered tool grouped by product, filterable, each showing
+  its model-facing description and full JSON input schema.
+- **Run** -- pick any tool, edit its arguments as JSON (pre-filled from the schema
+  defaults), execute it, and read the result with timing.
+- **Next** -- phase status, open items with the action each needs, and the
+  standing gotchas worth remembering.
+
+It is a **separate app** on purpose. ZW MCP itself stays UI-free (see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §7), and the console drives it over
+exactly the same bearer-authed `/mcp` endpoint that Claude Desktop or claude.ai
+uses -- so anything the console can do, a real MCP client can do. The bearer token
+stays in the console's server process and never reaches the browser.
+
+Bind address is `127.0.0.1`; it is not exposed over Tailscale by default, and it
+should not be -- it holds no auth of its own.
+
 ## Health
 
 ```bash
@@ -191,6 +224,7 @@ design so a monitor can poll it; it never returns the token itself.
 | `npm run consent` | Print the one-time DocuSign consent URL |
 | `npm run smoke` | One cheap read per enabled product, ✅/❌ table |
 | `npm run scopecheck` | Probe each OAuth scope individually to find one the account has not granted |
+| `npm run admin` | Local admin console on :8788 (see above) |
 | `npm run typecheck` | `tsc --noEmit` |
 
 ## Repository layout
@@ -206,6 +240,7 @@ src/
   tools/            per-product curated tools + raw.ts escape-hatch factory
   resources/        docusign://apis/* cheat sheets + demo_context prompt
   lib/              config, logging, response shaping and download handling
+admin/              local ops console (separate app; ZW MCP stays UI-free)
 specs/              verified base-path/scope tables, vendored OpenAPI specs
 scripts/            consent.ts, smoke.ts
 launchd/            com.zw.mcp.plist

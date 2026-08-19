@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZW MCP Admin</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #14161a; --muted: #5b6572;
+    --line: #e3e6ea; --accent: #2f6fed; --ok: #17803d; --warn: #a1610b;
+    --err: #c02726; --code-bg: #f2f4f7;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216; --panel: #171b21; --ink: #e7eaee; --muted: #9aa4b2;
+      --line: #262c35; --accent: #6c9bff; --ok: #4ec27f; --warn: #e0a33e;
+      --err: #ff7b72; --code-bg: #10141a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
+  .badge {
+    font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em;
+    padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
+  }
+  .badge.live { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+  .badge.down { color: var(--err); border-color: color-mix(in srgb, var(--err) 40%, var(--line)); }
+  nav { margin-left: auto; display: flex; gap: 4px; }
+  nav button {
+    font: inherit; padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    background: transparent; color: var(--muted); border: 1px solid transparent;
+  }
+  nav button:hover { color: var(--ink); }
+  nav button[aria-selected="true"] {
+    background: var(--bg); color: var(--ink); border-color: var(--line);
+  }
+  main { padding: 24px; max-width: 1180px; margin: 0 auto; }
+  section[hidden] { display: none; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
+  }
+  .card h3 { margin: 0 0 4px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .card .meta { color: var(--muted); font-size: 12.5px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .dot.ok { background: var(--ok); } .dot.err { background: var(--err); }
+  .dot.warn { background: var(--warn); } .dot.idle { background: var(--muted); opacity: .4; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: 13.5px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+  h2 { font-size: 15px; margin: 26px 0 12px; letter-spacing: -0.01em; }
+  h2:first-child { margin-top: 0; }
+  code, pre { font-family: var(--mono); }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; overflow-x: auto; font-size: 12.5px; margin: 0; max-height: 460px;
+  }
+  .tool {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 8px;
+  }
+  .tool summary { cursor: pointer; display: flex; align-items: baseline; gap: 10px; }
+  .tool summary::-webkit-details-marker { display: none; }
+  .tool .name { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .tool .title { color: var(--muted); font-size: 13px; }
+  .tool p { margin: 10px 0 8px; font-size: 13.5px; color: var(--ink); }
+  .pill {
+    font: 600 10.5px/1 var(--mono); padding: 4px 7px; border-radius: 6px;
+    background: var(--code-bg); color: var(--muted); border: 1px solid var(--line);
+  }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  input[type=search], select, textarea {
+    font: inherit; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 9px; padding: 8px 11px;
+  }
+  input[type=search] { flex: 1; min-width: 200px; }
+  select { min-width: 260px; }
+  textarea { width: 100%; font-family: var(--mono); font-size: 12.5px; min-height: 150px; resize: vertical; }
+  button.go {
+    font: 600 14px/1 inherit; padding: 10px 18px; border-radius: 9px; cursor: pointer;
+    background: var(--accent); color: #fff; border: none;
+  }
+  button.go:disabled { opacity: .55; cursor: progress; }
+  button.ghost {
+    font: inherit; padding: 8px 13px; border-radius: 9px; cursor: pointer;
+    background: transparent; color: var(--ink); border: 1px solid var(--line);
+  }
+  .gap { border-left: 3px solid var(--line); padding-left: 14px; margin-bottom: 18px; }
+  .gap.external { border-left-color: var(--warn); }
+  .gap.workaround { border-left-color: var(--accent); }
+  .gap.resolved { border-left-color: var(--ok); }
+  .gap h4 { margin: 0 0 4px; font-size: 14px; }
+  .gap p { margin: 0 0 5px; font-size: 13.5px; color: var(--muted); }
+  .gap .action { color: var(--ink); }
+  .phase { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .phase:last-child { border-bottom: none; }
+  .muted { color: var(--muted); }
+  .err-text { color: var(--err); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  td.mono { font-family: var(--mono); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ZW MCP Admin</h1>
+  <span class="badge" id="envBadge">connecting…</span>
+  <span class="badge" id="acctBadge" hidden></span>
+  <nav>
+    <button id="tab-status" aria-selected="true">Status</button>
+    <button id="tab-tools">Tools</button>
+    <button id="tab-run">Run</button>
+    <button id="tab-next">Next</button>
+  </nav>
+</header>
+
+<main>
+  <section id="view-status">
+    <div class="row">
+      <button class="ghost" id="refresh">Refresh</button>
+      <button class="ghost" id="probeAll">Probe every product</button>
+      <span class="muted" id="probeNote"></span>
+    </div>
+    <h2>Server</h2>
+    <div class="card"><dl class="kv" id="serverKv"><dt>state</dt><dd>loading…</dd></dl></div>
+    <h2>Product APIs</h2>
+    <div class="grid" id="products"></div>
+    <h2>Granted scopes</h2>
+    <div class="card"><div id="scopes" class="meta">loading…</div></div>
+  </section>
+
+  <section id="view-tools" hidden>
+    <div class="row">
+      <input type="search" id="toolFilter" placeholder="Filter tools by name or description…">
+      <span class="muted" id="toolCount"></span>
+    </div>
+    <div id="toolList"></div>
+  </section>
+
+  <section id="view-run" hidden>
+    <div class="row">
+      <select id="runTool"></select>
+      <button class="ghost" id="fillDefaults">Reset arguments</button>
+      <button class="go" id="runBtn">Run tool</button>
+      <span class="muted" id="runMeta"></span>
+    </div>
+    <p class="muted" id="runDesc" style="margin-top:0"></p>
+    <h2>Arguments (JSON)</h2>
+    <textarea id="runArgs">{}</textarea>
+    <h2>Result</h2>
+    <pre id="runOut">Pick a tool and press Run.</pre>
+  </section>
+
+  <section id="view-next" hidden>
+    <h2>Phases</h2>
+    <div class="card" id="phases"></div>
+    <h2>Open items</h2>
+    <div id="gaps"></div>
+    <h2>Notes</h2>
+    <div class="card"><ul id="notes" style="margin:0; padding-left:18px"></ul></div>
+  </section>
+</main>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const views = ['status', 'tools', 'run', 'next'];
+for (const v of views) {
+  $(`tab-${v}`).addEventListener('click', () => {
+    for (const w of views) {
+      $(`view-${w}`).hidden = w !== v;
+      $(`tab-${w}`).setAttribute('aria-selected', String(w === v));
+    }
+  });
+}
+
+const jget = async (u) => { const r = await fetch(u); return r.json(); };
+
+/* ---------- Status ---------- */
+let health = null;
+async function loadStatus() {
+  health = await jget('/api/health');
+  const badge = $('envBadge');
+  const down = health.status === 'unreachable';
+  badge.textContent = down ? 'MCP unreachable' : `${health.environment} · ${health.status}`;
+  badge.className = 'badge ' + (down ? 'down' : 'live');
+
+  if (down) {
+    $('serverKv').innerHTML = `<dt>error</dt><dd class="err-text">${health.error ?? ''}</dd>`;
+    $('products').innerHTML = '';
+    $('scopes').textContent = '—';
+    return;
+  }
+
+  $('acctBadge').hidden = false;
+  $('acctBadge').textContent = health.account?.accountName ?? 'no account';
+
+  const rows = [
+    ['server', `${health.server.name} v${health.server.version}`],
+    ['uptime', `${health.uptimeSeconds}s`],
+    ['environment', health.environment],
+    ['account', `${health.account?.accountName ?? '—'} (${health.account?.accountId ?? '—'})`],
+    ['organization', health.account?.organizationId ?? '—'],
+    ['eSign base URI', health.account?.baseUri ?? '—'],
+    ['token expires', health.token?.expiresAt ?? '—'],
+    ['scopes granted', String(health.token?.scopes?.length ?? 0)],
+  ];
+  if (health.authError) rows.push(['auth error', health.authError]);
+  $('serverKv').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  $('scopes').innerHTML = (health.token?.scopes ?? [])
+    .map((s) => `<span class="pill">${s}</span>`).join(' ') || '—';
+
+  $('products').innerHTML = (health.products ?? []).map((p) => `
+    <div class="card" data-product="${p.id}">
+      <h3><span class="dot idle" id="dot-${p.id}"></span>${p.label}</h3>
+      <div class="meta">${p.baseUri ?? 'base URI unresolved'}</div>
+      <div class="meta" id="probe-${p.id}" style="margin-top:6px">not probed</div>
+    </div>`).join('');
+}
+
+/* A probe per product: the cheapest read-only curated tool it has, or its
+   raw hatch. Mirrors what `npm run smoke` does, but in the browser. */
+const PROBES = {
+  esign: ['esign_account_info', {}],
+  navigator: ['nav_search_agreements', { limit: 1 }],
+  maestro: ['maestro_list_workflows', {}],
+  clm: ['clm_account_info', {}],
+  webforms: ['webforms_list_forms', { limit: 1 }],
+  rooms: ['rooms_list_rooms', { count: 1 }],
+  click: ['click_list_clickwraps', { limit: 1 }],
+  admin: ['admin_list_organizations', {}],
+  monitor: ['monitor_get_events', { limit: 1 }],
+  notary: ['notary_list_notaries', { count: 1 }],
+  connectedfields: ['connectedfields_list_tab_groups', {}],
+  workspaces: ['workspaces_list', { count: 1 }],
+};
+
+async function probeAll() {
+  $('probeNote').textContent = 'probing…';
+  const ids = (health?.products ?? []).map((p) => p.id);
+  await Promise.all(ids.map(async (id) => {
+    const spec = PROBES[id];
+    const dot = $(`dot-${id}`), note = $(`probe-${id}`);
+    if (!spec) { note.textContent = 'no probe defined'; return; }
+    note.textContent = 'probing…';
+    const r = await fetch('/api/call', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: spec[0], args: spec[1] }),
+    }).then((x) => x.json());
+    const failed = r.error || r.result?.isError;
+    dot.className = 'dot ' + (failed ? 'err' : 'ok');
+    const text = r.error ?? (r.result?.content?.[0]?.text ?? '');
+    note.innerHTML = failed
+      ? `<span class="err-text">${String(text).slice(0, 150)}</span>`
+      : `ok · ${r.durationMs}ms · <code>${spec[0]}</code>`;
+  }));
+  $('probeNote').textContent = 'done';
+}
+$('refresh').addEventListener('click', loadStatus);
+$('probeAll').addEventListener('click', probeAll);
+
+/* ---------- Tools ---------- */
+let tools = [];
+function renderTools() {
+  const q = $('toolFilter').value.toLowerCase();
+  const shown = tools.filter((t) =>
+    !q || t.name.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q));
+  $('toolCount').textContent = `${shown.length} of ${tools.length} tools`;
+  const byProduct = {};
+  for (const t of shown) (byProduct[t.name.split('_')[0]] ??= []).push(t);
+  $('toolList').innerHTML = Object.entries(byProduct).map(([prod, list]) => `
+    <h2>${prod} <span class="muted">(${list.length})</span></h2>
+    ${list.map((t) => `
+      <details class="tool">
+        <summary><span class="name">${t.name}</span><span class="title">${t.title ?? ''}</span></summary>
+        <p>${(t.description ?? '').replace(/</g, '&lt;')}</p>
+        <pre>${JSON.stringify(t.inputSchema ?? {}, null, 2)}</pre>
+      </details>`).join('')}`).join('');
+}
+$('toolFilter').addEventListener('input', renderTools);
+
+/* ---------- Run ---------- */
+function defaultsFor(tool) {
+  const props = tool?.inputSchema?.properties ?? {};
+  const required = tool?.inputSchema?.required ?? [];
+  const out = {};
+  for (const [k, v] of Object.entries(props)) {
+    if (v.default !== undefined) out[k] = v.default;
+    else if (required.includes(k)) out[k] = v.type === 'number' || v.type === 'integer' ? 0 : '';
+  }
+  return out;
+}
+function syncRun() {
+  const t = tools.find((x) => x.name === $('runTool').value);
+  $('runDesc').textContent = t?.description ?? '';
+  $('runArgs').value = JSON.stringify(defaultsFor(t), null, 2);
+}
+$('runTool').addEventListener('change', syncRun);
+$('fillDefaults').addEventListener('click', syncRun);
+$('runBtn').addEventListener('click', async () => {
+  const btn = $('runBtn');
+  btn.disabled = true; $('runMeta').textContent = 'running…';
+  let args;
+  try { args = JSON.parse($('runArgs').value || '{}'); }
+  catch (e) { $('runOut').textContent = 'Arguments are not valid JSON: ' + e.message; btn.disabled = false; $('runMeta').textContent=''; return; }
+  const r = await fetch('/api/call', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: $('runTool').value, args }),
+  }).then((x) => x.json());
+  const body = r.error ?? r.result?.content?.map((c) => c.text).join('\n') ?? JSON.stringify(r, null, 2);
+  $('runOut').textContent = body;
+  $('runMeta').innerHTML = r.error || r.result?.isError
+    ? `<span class="err-text">failed · ${r.durationMs ?? 0}ms</span>`
+    : `ok · ${r.durationMs}ms`;
+  btn.disabled = false;
+});
+
+/* ---------- Next ---------- */
+async function loadRoadmap() {
+  const r = await jget('/api/roadmap');
+  $('phases').innerHTML = r.phases.map((p) => `
+    <div class="phase">
+      <span class="dot ${p.status === 'done' ? 'ok' : 'warn'}"></span>
+      <strong>Phase ${p.id}</strong>
+      <span>${p.name}</span>
+      <span class="pill" style="margin-left:auto">${p.status}</span>
+    </div>`).join('');
+  $('gaps').innerHTML = r.gaps.map((g) => `
+    <div class="gap ${g.severity}">
+      <h4>${g.title}</h4>
+      <p>${g.detail}</p>
+      <p class="action"><strong>→</strong> ${g.action}</p>
+    </div>`).join('');
+  $('notes').innerHTML = r.notes.map((n) => `<li>${n}</li>`).join('');
+}
+
+/* ---------- boot ---------- */
+(async () => {
+  await loadStatus();
+  const t = await jget('/api/tools');
+  tools = t.tools ?? [];
+  if (t.error) $('toolList').innerHTML = `<p class="err-text">${t.error}</p>`;
+  renderTools();
+  $('runTool').innerHTML = tools.map((x) => `<option>${x.name}</option>`).join('');
+  syncRun();
+  await loadRoadmap();
+})();
+</script>
+</body>
+</html>
