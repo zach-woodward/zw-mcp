@@ -78,11 +78,23 @@ Locally, `http://127.0.0.1:8787/mcp` works.
 
 ### Claude Code
 
+On this machine:
+
 ```bash
 claude mcp add zw-mcp \
   --transport http \
   --scope user \
-  https://<your-tailnet-host>/mcp \
+  http://127.0.0.1:8787/mcp \
+  --header "Authorization: Bearer <ZW_MCP_TOKEN>"
+```
+
+From another machine on the LAN, swap in the host's address:
+
+```bash
+claude mcp add zw-mcp \
+  --transport http \
+  --scope user \
+  http://ZWs-Mac-mini.local:8787/mcp \
   --header "Authorization: Bearer <ZW_MCP_TOKEN>"
 ```
 
@@ -91,7 +103,7 @@ claude mcp add zw-mcp \
 Settings -> Connectors -> **Add custom connector**:
 
 - **Name**: `ZW MCP`
-- **URL**: `https://<your-tailnet-host>/mcp`
+- **URL**: `http://ZWs-Mac-mini.local:8787/mcp` (or `http://127.0.0.1:8787/mcp` on the host itself)
 - **Header**: `Authorization: Bearer <ZW_MCP_TOKEN>`
 
 Or edit `~/Library/Application Support/Claude/claude_desktop_config.json` directly:
@@ -101,19 +113,21 @@ Or edit `~/Library/Application Support/Claude/claude_desktop_config.json` direct
   "mcpServers": {
     "zw-mcp": {
       "type": "http",
-      "url": "https://<your-tailnet-host>/mcp",
+      "url": "http://ZWs-Mac-mini.local:8787/mcp",
       "headers": { "Authorization": "Bearer <ZW_MCP_TOKEN>" }
     }
   }
 }
 ```
 
-### claude.ai
+### claude.ai and Claude Cowork
 
-Settings -> Connectors -> **Add custom connector** -> paste
-`https://<your-tailnet-host>/mcp` and add the `Authorization: Bearer <ZW_MCP_TOKEN>`
-header. claude.ai **requires HTTPS** -- a bare `http://` or an IP address will not
-be accepted, so the Tailscale step below is mandatory for this client.
+Settings -> Connectors -> **Add custom connector**, with the `/mcp` URL and the
+`Authorization: Bearer <ZW_MCP_TOKEN>` header.
+
+Both connect from Anthropic's servers, not from your browser or machine, so they
+need a **public HTTPS URL**. A LAN IP, `*.local` name, `localhost`, or a
+tailnet-only Serve address will not work for them -- see **Remote access**.
 
 ### MCP Inspector (debugging)
 
@@ -124,7 +138,53 @@ npx @modelcontextprotocol/inspector npx tsx src/stdio.ts   # or drive the stdio 
 
 ## Remote access
 
-The server binds `127.0.0.1` on purpose. Do **not** port-forward it.
+Which clients can reach ZW MCP depends on where the client actually runs:
+
+| Client | Runs where | LAN IP works? |
+| --- | --- | --- |
+| Claude Code | your machine | ✅ |
+| Claude Desktop | your machine | ✅ |
+| claude.ai custom connector | Anthropic's servers | ❌ needs public HTTPS |
+| Claude Cowork | Anthropic's servers | ❌ needs public HTTPS |
+
+**This is the trap.** Tailscale *Serve* publishes to your tailnet only, so it works
+for Claude Desktop and Claude Code but NOT for claude.ai or Cowork -- those connect
+from Anthropic's infrastructure, which is not on your tailnet and cannot resolve a
+`*.ts.net` name. For those you need genuinely public HTTPS: Tailscale **Funnel**,
+Cloudflare Tunnel, or similar.
+
+### LAN access (no tunnel)
+
+`HOST=0.0.0.0` in `.env` makes the server reachable from other machines on your
+network at `http://<lan-ip>:8787/mcp`. Every request still requires the
+`ZW_MCP_TOKEN` bearer, which is exactly what that token is for -- an unauthenticated
+request gets a `401`.
+
+Set `HOST=127.0.0.1` to restrict it to this machine again.
+
+### Public HTTPS (for claude.ai / Cowork)
+
+Do **not** raw port-forward. Use a tunnel that terminates TLS for you:
+
+```bash
+# Cloudflare Tunnel -- no account needed for a quick ephemeral URL
+brew install cloudflared
+cloudflared tunnel --url http://127.0.0.1:8787
+
+# or Tailscale Funnel, if Tailscale is available to you
+tailscale funnel --bg 8787
+```
+
+Tunnel **8787 only**. Never tunnel 8788: the admin console has no password and can
+send and void envelopes.
+
+Behind a public tunnel, `ZW_MCP_TOKEN` is the only thing between the internet and
+your Docusign account. Rotate it before going public:
+
+```bash
+openssl rand -hex 32      # put in .env, then:
+launchctl kickstart -k gui/$(id -u)/com.zw.mcp
+```
 
 **Default -- Tailscale Serve** (private, tailnet-only HTTPS):
 
