@@ -4,6 +4,14 @@ import { registerEsignTools } from './esign.js';
 import { registerNavigatorTools } from './navigator.js';
 import { registerMaestroTools } from './maestro.js';
 import { registerClmTools } from './clm.js';
+import { registerWebFormsTools } from './webforms.js';
+import { registerRoomsTools } from './rooms.js';
+import { registerClickTools } from './click.js';
+import { registerAdminTools } from './admin.js';
+import { registerMonitorTools } from './monitor.js';
+import { registerNotaryTools } from './notary.js';
+import { registerConnectedFieldsTools } from './connectedfields.js';
+import { registerWorkspacesTools } from './workspaces.js';
 import { registerRawTool } from './raw.js';
 
 /**
@@ -80,8 +88,78 @@ export const TOOL_MODULES: Partial<Record<ProductId, ToolModule>> = {
     ],
   },
 
-  // Phase 3 adds the rest. Until then each enabled product still gets its
-  // raw_request tool, so nothing is unreachable.
+  webforms: {
+    register: registerWebFormsTools,
+    curated: [
+      'webforms_list_forms',
+      'webforms_get_form',
+      'webforms_list_instances',
+      'webforms_create_instance',
+    ],
+  },
+
+  rooms: {
+    register: registerRoomsTools,
+    curated: [
+      'rooms_list_rooms',
+      'rooms_get_room',
+      'rooms_create_room',
+      'rooms_list_documents',
+      'rooms_download_document',
+      'rooms_list_roles',
+      'rooms_get_field_data',
+    ],
+  },
+
+  click: {
+    register: registerClickTools,
+    curated: [
+      'click_list_clickwraps',
+      'click_get_clickwrap',
+      'click_list_agreements',
+      'click_create_clickwrap',
+      'click_download_agreement',
+    ],
+  },
+
+  admin: {
+    register: registerAdminTools,
+    curated: [
+      'admin_list_organizations',
+      'admin_list_users',
+      'admin_get_user',
+      'admin_list_groups',
+      'admin_list_permission_profiles',
+    ],
+  },
+
+  monitor: { register: registerMonitorTools, curated: ['monitor_get_events'] },
+
+  notary: {
+    register: registerNotaryTools,
+    curated: ['notary_list_notaries', 'notary_list_jurisdictions', 'notary_list_journals'],
+  },
+
+  connectedfields: {
+    register: registerConnectedFieldsTools,
+    curated: ['connectedfields_list_tab_groups'],
+  },
+
+  workspaces: {
+    register: registerWorkspacesTools,
+    curated: [
+      'workspaces_list',
+      'workspaces_get',
+      'workspaces_list_documents',
+      'workspaces_download_document',
+      'workspaces_list_envelopes',
+      'workspaces_list_upload_requests',
+      'workspaces_list_users',
+    ],
+  },
+
+  // trustrecords has no curated tools -- see the note in src/clients/products.ts.
+  // It still gets trustrecords_raw_request when enabled.
 };
 
 export function curatedToolsFor(product: ProductId): string[] {

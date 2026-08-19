@@ -155,16 +155,16 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     id: 'monitor',
     toolPrefix: 'monitor',
     label: 'Monitor API',
-    baseUri: (env) =>
-      env === 'prod'
-        ? 'https://lens.docusign.net/api/v2.0/datasets/monitor'
-        : 'https://lens-d.docusign.net/api/v2.0/datasets/monitor',
-    // CONFLICT: the docs base-path table says lens-d.docusign.net/api/v2.0/datasets/monitor
-    // (used here), while monitor.rest.swagger-v2.0.json declares api.docusign.com
-    // with /v1/organizations/{organizationId}/stream. Two API generations. Resolve
-    // against a live call in Phase 3 before shipping curated Monitor tools.
-    pathHint: '/stream?cursor=&limit=',
-    status: 'unverified',
+    // The docs base-path table and the vendored spec disagree. Settled by live
+    // probe on 2026-08-19: the spec's host+path is the live one.
+    //   api-d.docusign.com/v1/organizations/{orgId}/stream
+    //     -> 403 {"error":"Organization does not have Monitor entitlement"}
+    //        (routed correctly, evaluated entitlement -- this is the real endpoint)
+    //   lens-d.docusign.net/api/v2.0/datasets/monitor/stream
+    //     -> 403 with an empty body (older Monitor generation)
+    baseUri: (env) => iamHost(env),
+    pathHint: '/v1/organizations/{organizationId}/stream',
+    status: 'ga',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/monitor-api/',
   },
@@ -173,8 +173,12 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     toolPrefix: 'notary',
     label: 'Notary API',
     baseUri: (env) =>
-      env === 'prod' ? 'https://na-notary.docusign.net' : 'https://notary-d.docusign.net',
-    pathHint: '/restapi/v1/accounts/{accountId}/notary/journals',
+      // VERIFIED 2026-08-19 https://developers.docusign.com/docs/notary-api/notary101/concepts/
+      // "https://notary-d.docusign.net/restapi/..." -- the base carries /restapi.
+      env === 'prod'
+        ? 'https://na-notary.docusign.net/restapi'
+        : 'https://notary-d.docusign.net/restapi',
+    pathHint: '/v1.0/accounts/{accountId}/notaries',
     status: 'ga',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/notary-api/',
@@ -199,12 +203,29 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/workspaces-api/',
   },
+  /**
+   * NO SUCH PUBLIC API, as far as can be established.
+   *
+   * The build brief listed "Trust Records" among the product APIs to cover, but:
+   *   - it appears in no Docusign OpenAPI spec,
+   *   - it appears in neither the endpoint base-path table nor the scopes reference,
+   *   - repeated Developer Center searches return nothing about it, and
+   *   - six candidate endpoint shapes all return 404 on a live account
+   *     (VERIFIED 2026-08-19: /v1/accounts/{id}/trust-records, /trustrecords,
+   *      /v1/organizations/{org}/trust-records, /trust/records,
+   *      restapi/v2.1/.../trust_records, management/v2/.../trust-records).
+   *
+   * The entry is kept so the name resolves and the raw hatch exists if Docusign
+   * ships it (or if it turns out to be an internal/private surface), but it is
+   * NOT in the default DS_PRODUCTS and has no curated tools. "Trust records" in
+   * Docusign marketing most likely refers to the certificate-of-completion and
+   * audit-trail data, which the eSignature API already exposes via
+   * envelopes/{id}/audit_events and the "certificate" document.
+   */
   trustrecords: {
     id: 'trustrecords',
     toolPrefix: 'trustrecords',
-    label: 'Trust Records API',
-    // UNVERIFIED: Trust Records appears in neither the endpoint base-path table
-    // nor the scopes reference. Confirm in Phase 3 before relying on this.
+    label: 'Trust Records API (not a published API -- see comment)',
     baseUri: (env) => iamHost(env),
     pathHint: '/v1/accounts/{accountId}/trust-records',
     status: 'unverified',

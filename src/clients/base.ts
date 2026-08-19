@@ -72,7 +72,17 @@ export async function apiRequest<T = unknown>(
 ): Promise<T> {
   const account = await getAccount();
   const base = await baseUriFor(product);
-  const path = req.path.replace(/\{accountId\}/g, account.accountId);
+  let path = req.path.replace(/\{accountId\}/g, account.accountId);
+  if (path.includes('{organizationId}')) {
+    if (!account.organizationId) {
+      throw new Error(
+        `${PRODUCTS[product].label} needs an organization ID, but /oauth/userinfo did not ` +
+          `report one for account ${account.accountId}. The account may not belong to a ` +
+          `Docusign organization, which the Admin and Monitor APIs require.`,
+      );
+    }
+    path = path.replace(/\{organizationId\}/g, account.organizationId);
+  }
   const url = buildUrl(base, path, req.query);
   const started = Date.now();
 

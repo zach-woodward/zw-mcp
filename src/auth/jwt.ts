@@ -21,6 +21,12 @@ export interface AccountInfo {
   /** e.g. https://demo.docusign.net -- the eSignature host, before /restapi. */
   baseUri: string;
   isDefault: boolean;
+  /**
+   * Organization GUID. The Admin, Monitor and Notary APIs are organization-scoped
+   * rather than account-scoped, and this is the only place it is discoverable
+   * without an extra call.
+   */
+  organizationId?: string;
 }
 
 export interface UserInfo {
@@ -192,6 +198,7 @@ export async function getUserInfo(): Promise<UserInfo> {
       account_name: string;
       base_uri: string;
       is_default: boolean;
+      organization?: { organization_id?: string };
     }>;
   };
 
@@ -204,6 +211,7 @@ export async function getUserInfo(): Promise<UserInfo> {
       accountName: a.account_name,
       baseUri: a.base_uri,
       isDefault: a.is_default,
+      organizationId: a.organization?.organization_id,
     })),
   };
   logger.info(

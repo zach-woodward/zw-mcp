@@ -40,8 +40,14 @@ const PROBES: Partial<Record<ProductId, Probe>> = {
   },
   rooms: { path: '/v2/accounts/{accountId}/rooms', query: { count: 1 }, proves: 'room list' },
   click: { path: '/v1/accounts/{accountId}/clickwraps', proves: 'clickwrap list' },
-  monitor: { path: '/stream', query: { limit: 1 }, proves: 'event stream' },
-  notary: { path: '/restapi/v1/accounts/{accountId}/notary/journals', proves: 'notary journal' },
+  admin: { path: '/v2/organizations', proves: 'organization list' },
+
+  monitor: {
+    path: '/v1/organizations/{organizationId}/stream',
+    query: { limit: 1 },
+    proves: 'event stream',
+  },
+  notary: { path: '/v1.0/accounts/{accountId}/notaries', query: { count: 1 }, proves: 'notary pool' },
   connectedfields: {
     path: '/v1/accounts/{accountId}/connected-fields/tab-groups',
     proves: 'tab groups',
