@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.zw.mcp</string>
+
+  <!-- Runs the BUILT server. Re-run `npm run build` before restarting. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/zwmacminiai/dev/zw-mcp/dist/src/index.js</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/zwmacminiai/dev/zw-mcp</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <!-- Back off instead of hot-looping if the server dies on a bad .env. -->
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/zwmacminiai/dev/zw-mcp/logs/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/zwmacminiai/dev/zw-mcp/logs/launchd.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- Config comes from .env in WorkingDirectory; only PATH is set here so
+         node can find anything it shells out to. -->
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>NODE_ENV</key>
+    <string>production</string>
+  </dict>
+</dict>
+</plist>

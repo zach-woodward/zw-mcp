@@ -1,0 +1,8 @@
+node_modules/
+dist/
+logs/
+downloads/
+.env
+*.pem
+.DS_Store
+keys/
