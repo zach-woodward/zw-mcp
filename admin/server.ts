@@ -10,20 +10,77 @@
  * process talks to ZW MCP -- so the token is never in page source, and there is
  * no CORS dance.
  */
-import express, { type Request, type Response } from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import path from 'node:path';
+import { timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { request } from 'undici';
 import { loadConfig } from '../src/lib/config.js';
 
 const cfg = loadConfig();
 const ADMIN_PORT = Number(process.env.ADMIN_PORT ?? 8788);
+const ADMIN_BIND = process.env.ADMIN_BIND ?? '127.0.0.1';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? '';
+const ADMIN_USER = process.env.ADMIN_USER ?? 'zw';
 const MCP_URL = process.env.ZW_MCP_URL ?? `http://${cfg.HOST}:${cfg.PORT}/mcp`;
 const HEALTH_URL = MCP_URL.replace(/\/mcp$/, '/health');
+
+const isLoopback = ADMIN_BIND === '127.0.0.1' || ADMIN_BIND === 'localhost' || ADMIN_BIND === '::1';
+
+/*
+ * Fail closed.
+ *
+ * This console can send and void real envelopes through the Run tab, and it holds
+ * the ZW MCP bearer token server-side -- so reaching it IS reaching DocuSign.
+ * Binding it anywhere but loopback without a password would put that on the
+ * network for anyone who can route to the host, so we refuse to start instead.
+ */
+const ALLOW_INSECURE = process.env.ADMIN_ALLOW_INSECURE === '1';
+
+if (!isLoopback && !ADMIN_PASSWORD && !ALLOW_INSECURE) {
+  console.error(
+    `\nRefusing to start.\n\n` +
+      `ADMIN_BIND=${ADMIN_BIND} exposes this console beyond localhost, but ADMIN_PASSWORD\n` +
+      `is not set. The console can send and void envelopes, so it must not be reachable\n` +
+      `without a password.\n\n` +
+      `Fix it with either:\n` +
+      `  ADMIN_PASSWORD=$(openssl rand -hex 24)   # set one, then restart\n` +
+      `  ADMIN_BIND=127.0.0.1                     # keep it local-only\n`,
+  );
+  process.exit(1);
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json({ limit: '25mb' }));
+
+/** Constant-time compare so the password can't be probed by timing. */
+function matches(a: string, b: string): boolean {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+// HTTP Basic, so any browser on the network gets a native login prompt with no
+// login page to build. Applied before the static handler so the HTML itself is
+// protected, not just the API.
+if (ADMIN_PASSWORD) {
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const header = req.header('authorization') ?? '';
+    if (header.startsWith('Basic ')) {
+      const [user, ...rest] = Buffer.from(header.slice(6), 'base64').toString().split(':');
+      if (matches(user ?? '', ADMIN_USER) && matches(rest.join(':'), ADMIN_PASSWORD)) {
+        next();
+        return;
+      }
+    }
+    res
+      .status(401)
+      .set('WWW-Authenticate', 'Basic realm="ZW MCP Admin", charset="UTF-8"')
+      .send('Authentication required.');
+  });
+}
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 let rpcId = 0;
@@ -156,7 +213,24 @@ app.get('/api/roadmap', (_req: Request, res: Response) => {
   });
 });
 
-app.listen(ADMIN_PORT, '127.0.0.1', () => {
-  console.log(`ZW MCP Admin  ->  http://127.0.0.1:${ADMIN_PORT}`);
+app.listen(ADMIN_PORT, ADMIN_BIND, () => {
+  const shown = isLoopback ? '127.0.0.1' : ADMIN_BIND;
+  console.log(`ZW MCP Admin  ->  http://${shown}:${ADMIN_PORT}`);
   console.log(`  driving      ${MCP_URL}`);
+  console.log(
+    `  auth         ${
+      ADMIN_PASSWORD
+        ? `Basic (user "${ADMIN_USER}")`
+        : isLoopback
+          ? 'none -- loopback only'
+          : 'NONE -- exposed on the network by explicit ADMIN_ALLOW_INSECURE=1'
+    }`,
+  );
+  if (!isLoopback) {
+    console.log(
+      `  note         Basic auth over plain HTTP sends credentials base64-encoded,\n` +
+        `               not encrypted. Fine on a trusted LAN; use Tailscale Serve for\n` +
+        `               real HTTPS if this leaves your network.`,
+    );
+  }
 });

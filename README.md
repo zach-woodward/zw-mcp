@@ -200,8 +200,42 @@ exactly the same bearer-authed `/mcp` endpoint that Claude Desktop or claude.ai
 uses -- so anything the console can do, a real MCP client can do. The bearer token
 stays in the console's server process and never reaches the browser.
 
-Bind address is `127.0.0.1`; it is not exposed over Tailscale by default, and it
-should not be -- it holds no auth of its own.
+### Reaching the console from other machines
+
+By default the console binds `127.0.0.1`. To open it to your LAN:
+
+```bash
+npm run admin:lan          # binds 0.0.0.0, no password (ADMIN_ALLOW_INSECURE=1)
+```
+
+Then browse to `http://<mac-mini-lan-ip>:8788` or `http://ZWs-Mac-mini.local:8788`.
+
+**Understand what that exposes.** The console holds the ZW MCP bearer token
+server-side and its Run tab can send and void real envelopes, so reaching the
+console is reaching DocuSign. On a trusted LAN with a demo account that is a
+reasonable trade; with a production account it is not.
+
+The server **fails closed**: binding anywhere but loopback without a password
+refuses to start unless you set `ADMIN_ALLOW_INSECURE=1`, so it can never be
+exposed by accident. To add a password instead:
+
+```bash
+ADMIN_BIND=0.0.0.0 ADMIN_PASSWORD=$(openssl rand -hex 24) npm run admin
+# browser prompts for HTTP Basic; default user is "zw" (override with ADMIN_USER)
+```
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ADMIN_PORT` | `8788` | Listen port |
+| `ADMIN_BIND` | `127.0.0.1` | Bind address; `0.0.0.0` for LAN |
+| `ADMIN_PASSWORD` | _(unset)_ | Enables HTTP Basic auth |
+| `ADMIN_USER` | `zw` | Basic auth username |
+| `ADMIN_ALLOW_INSECURE` | _(unset)_ | Deliberately skip auth on a non-loopback bind |
+| `ZW_MCP_URL` | `http://$HOST:$PORT/mcp` | Which ZW MCP to drive |
+
+Basic auth over plain HTTP base64-encodes credentials rather than encrypting
+them. For anything leaving your network, put Tailscale Serve in front (see
+**Remote access**) rather than relying on that.
 
 ## Health
 
@@ -224,7 +258,8 @@ design so a monitor can poll it; it never returns the token itself.
 | `npm run consent` | Print the one-time DocuSign consent URL |
 | `npm run smoke` | One cheap read per enabled product, ✅/❌ table |
 | `npm run scopecheck` | Probe each OAuth scope individually to find one the account has not granted |
-| `npm run admin` | Local admin console on :8788 (see above) |
+| `npm run admin` | Admin console on :8788, loopback only |
+| `npm run admin:lan` | Admin console bound to `0.0.0.0`, no password |
 | `npm run typecheck` | `tsc --noEmit` |
 
 ## Repository layout
