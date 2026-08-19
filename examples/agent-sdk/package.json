@@ -1,0 +1,12 @@
+{
+  "name": "zw-mcp-agent-example",
+  "private": true,
+  "type": "module",
+  "description": "Minimal Claude Agent SDK app driving ZW MCP -- the pattern the demo skins will use",
+  "scripts": {
+    "start": "node --experimental-strip-types demo.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.0"
+  }
+}

@@ -129,6 +129,26 @@ Both connect from Anthropic's servers, not from your browser or machine, so they
 need a **public HTTPS URL**. A LAN IP, `*.local` name, `localhost`, or a
 tailnet-only Serve address will not work for them -- see **Remote access**.
 
+### Your own app (Claude Agent SDK)
+
+The Agent SDK runs in **your** process, so it reaches ZW MCP over localhost or the
+LAN with no tunnel:
+
+```ts
+mcpServers: {
+  'zw-mcp': {
+    type: 'http',
+    url: 'http://127.0.0.1:8787/mcp',
+    headers: { Authorization: `Bearer ${process.env.ZW_MCP_TOKEN}` },
+  },
+},
+allowedTools: ['mcp__zw-mcp__*'],
+```
+
+A runnable starter is in [`examples/agent-sdk/`](examples/agent-sdk/). This is the
+pattern the skinned demo UIs use -- they hold no Docusign logic, just a URL and a
+token.
+
 ### MCP Inspector (debugging)
 
 ```bash
@@ -371,6 +391,7 @@ src/
   resources/        docusign://apis/* cheat sheets + demo_context prompt
   lib/              config, logging, response shaping and download handling
 admin/              local ops console (separate app; ZW MCP stays UI-free)
+examples/agent-sdk/ minimal Claude Agent SDK app -- the pattern demo skins use
 specs/              verified base-path/scope tables, vendored OpenAPI specs
 scripts/            consent.ts, smoke.ts
 launchd/            com.zw.mcp.plist
