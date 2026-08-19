@@ -279,18 +279,18 @@ tables in [`specs/BASE_PATHS.md`](../specs/BASE_PATHS.md).
 | API | Base URI (demo) | Scopes | Curated tools | Raw hatch | Spec source | Status |
 | --- | --- | --- | ---: | :---: | --- | --- |
 | eSignature v2.1 | `{base_uri}/restapi` | `signature` | 13 | ✅ | vendored OpenAPI | GA -- **Phase 1 done** |
-| Navigator | `api-d.docusign.com/v1` | `adm_store_unified_repo_read`, `models_read` | 0 | ✅ | hand-built | beta -- Phase 2 |
-| CLM | per-account SpringCM host | `spring_read`, `spring_write`, `content` | 0 | ✅ | hand-built | Phase 2, host discovery unverified |
-| Maestro | `api-d.docusign.com/v1` | `aow_manage` | 0 | ✅ | hand-built | beta -- Phase 2 |
-| Web Forms | `apps-d.docusign.com` | `webforms_read`, `webforms_instance_read/write` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
-| Rooms v2 | `demo.rooms.docusign.com/restapi/v2` | `dtr.*`, `room_forms` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
-| Click | `{base_uri}/clickapi` | `click.manage`, `click.send` | 0 | ✅ | vendored OpenAPI | Phase 3, base path unverified |
+| Navigator | `api-d.docusign.com/v1` | `adm_store_unified_repo_read`, `models_read` | 0 | ✅ | vendored OpenAPI 3.1 | beta -- Phase 2 |
+| CLM | per-account SpringCM host | `spring_read`, `spring_write`, `content` | 0 | ✅ | hand-built (no published spec) | Phase 2, host discovery unverified |
+| Maestro (= Workflow Builder) | `api-d.docusign.com/v1` | `aow_manage` | 0 | ✅ | vendored OpenAPI 3.1 | beta -- Phase 2 |
+| Web Forms | `apps-d.docusign.com/api/webforms` | `webforms_read`, `webforms_instance_read/write` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
+| Rooms v2 | `demo.rooms.docusign.com/restapi` | `dtr.*`, `room_forms` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
+| Click | `{base_uri}/clickapi` | `click.manage`, `click.send` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
 | Admin | `api-d.docusign.net/management` | `organization_read`, `user_read`, ... | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
-| Monitor | `lens-d.docusign.net/api/v2.0/datasets/monitor` | `signature` (unverified) | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
-| Notary | `notary-d.docusign.net` | `notary_read`, `notary_write` | 0 | ✅ | vendored OpenAPI | GA -- Phase 3 |
-| Connected Fields | `api-d.docusign.com/v1` | `adm_store_unified_repo_read` + `signature` | 0 | ✅ | hand-built | GA -- Phase 3 |
-| Workspaces | `api-d.docusign.com/v1` | `dtr.rooms.*`, `dtr.documents.write` | 0 | ✅ | hand-built | beta -- Phase 3 |
-| Trust Records | unverified | unverified | 0 | ✅ | unverified | Phase 3 -- confirm the API exists as a separate surface |
+| Monitor | `lens-d.docusign.net/api/v2.0/datasets/monitor` | `signature` (unverified) | 0 | ✅ | vendored OpenAPI | Phase 3 -- spec and docs disagree on host |
+| Notary | `notary-d.docusign.net` | `notary_read`, `notary_write` | 0 | ✅ | hand-built (no published spec) | GA -- Phase 3 |
+| Connected Fields | `api-d.docusign.com/v1` | `adm_store_unified_repo_read` + `signature` | 0 | ✅ | vendored OpenAPI 3.1 | GA -- Phase 3 |
+| Workspaces | `api-d.docusign.com/v1` | `dtr.rooms.*`, `dtr.documents.write` | 0 | ✅ | vendored OpenAPI 3.0 | beta -- Phase 3 |
+| Trust Records | unverified | unverified | 0 | ✅ | none published | Phase 3 -- confirm the API exists as a separate surface |
 
 "Raw hatch ✅" means the product gets a `<product>_raw_request` tool as soon as it
 is listed in `DS_PRODUCTS`, regardless of curated coverage.
