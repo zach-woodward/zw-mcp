@@ -380,7 +380,26 @@ npm run verify-boot
 ```
 
 It checks all three agents, the local and public endpoints, that an unauthenticated
-request is still rejected, and both reboot prerequisites above.
+request is still rejected, the Tailscale Funnel mappings, and both reboot
+prerequisites above.
+
+It also reports **every other `com.zw.*` agent on the machine**, because they share
+one fate: all of them are LaunchAgents in the same GUI domain, so turning off
+automatic login stops all of them coming back, not just this project's.
+
+### Funnel port budget
+
+Tailscale Funnel permits exactly three ports: **443, 8443, 10000**. Current use on
+this machine:
+
+| Public port | Proxies to | Service |
+| --- | --- | --- |
+| 443 | `127.0.0.1:8787` | ZW MCP |
+| 8443 | `127.0.0.1:8790` | (separate project) |
+| 10000 | free | — |
+
+A fourth public service needs path-based serve on 443
+(`tailscale funnel --bg --set-path=/name <port>`) rather than another port.
 
 This was validated by tearing all three agents down and letting launchd cold-start
 them: Tailscale reconnected, Funnel restored itself from the state directory, OAuth

@@ -16,11 +16,26 @@ echo
 echo "ZW MCP boot verification"
 echo "========================"
 echo
-echo "launchd agents"
+echo "launchd agents (ZW MCP)"
 for L in com.zw.mcp com.zw.mcp.admin com.zw.tailscaled; do
   state="$(launchctl print "gui/$UID_NUM/$L" 2>/dev/null | awk '/state = /{print $3; exit}')"
   check "$L" "${state:-absent}" "running"
 done
+
+# Every com.zw.* agent shares one fate: they are all LaunchAgents in the same GUI
+# domain, so if automatic login is ever turned off they all stop coming back
+# together. Report the neighbours too rather than only this project's three.
+others="$(ls -1 "$HOME/Library/LaunchAgents"/com.zw.*.plist 2>/dev/null \
+  | xargs -n1 basename 2>/dev/null | sed 's/\.plist$//' \
+  | grep -Ev '^(com\.zw\.mcp|com\.zw\.mcp\.admin|com\.zw\.tailscaled)$' || true)"
+if [ -n "$others" ]; then
+  echo
+  echo "launchd agents (other projects on this machine)"
+  for L in $others; do
+    state="$(launchctl print "gui/$UID_NUM/$L" 2>/dev/null | awk '/state = /{print $3; exit}')"
+    check "$L" "${state:-absent}" "running"
+  done
+fi
 
 echo
 echo "endpoints"
@@ -31,7 +46,13 @@ check "OAuth metadata"        "$(curl -s -m 20 -o /dev/null -w '%{http_code}' "$
 check "MCP rejects no token"  "$(curl -s -m 20 -o /dev/null -w '%{http_code}' -X POST "$PUBLIC/mcp" -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -d '{}')" "401"
 
 echo
+echo "tailscale funnel mappings"
+/opt/homebrew/bin/tailscale --socket="$HOME/.tailscale/tailscaled.sock" serve status 2>/dev/null \
+  | grep -E 'proxy|Funnel on' | sed 's/^/  /' || echo "  (no serve config)"
+
+echo
 echo "prerequisites for surviving the NEXT reboot"
+echo "  NOTE: these are machine-wide. Every com.zw.* agent above depends on them."
 # LaunchAgents only load once a GUI session exists. Without automatic login this
 # machine comes back with everything stopped and no error anywhere.
 autologin="$(defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser 2>/dev/null || echo '')"
