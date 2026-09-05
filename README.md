@@ -355,8 +355,43 @@ launchctl bootout gui/$(id -u)/com.zw.mcp
 launchctl bootout gui/$(id -u)/com.zw.mcp.admin
 ```
 
-Both have `KeepAlive` (restarted if they die) and `ThrottleInterval` 10s, so a bad
-`.env` backs off instead of hot-looping.
+All three have `KeepAlive` (restarted if they die) and `ThrottleInterval` 10s, so a
+bad `.env` backs off instead of hot-looping.
+
+### Surviving a reboot
+
+`RunAtLoad` is only half the story. These are **LaunchAgents**, which live in the
+`gui/<uid>` domain and load when a GUI session starts -- *not* at boot. On a
+headless always-on machine that distinction decides whether anything comes back:
+
+| Requirement | Why it matters | Check |
+| --- | --- | --- |
+| **Automatic login enabled** | Without it the machine boots to a login window and every agent stays stopped, with no error anywhere | `defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser` |
+| **FileVault off** (or unlocked) | An encrypted disk must be unlocked before any login can happen, automatic or not | `fdesetup status` |
+
+Both currently hold on this machine. If you ever enable FileVault or turn off
+automatic login, ZW MCP silently stops surviving reboots -- so re-check after any
+change to either.
+
+Verify the whole stack after a restart:
+
+```bash
+npm run verify-boot
+```
+
+It checks all three agents, the local and public endpoints, that an unauthenticated
+request is still rejected, and both reboot prerequisites above.
+
+This was validated by tearing all three agents down and letting launchd cold-start
+them: Tailscale reconnected, Funnel restored itself from the state directory, OAuth
+metadata served, and issued grants survived -- no manual step required.
+
+If you want to eliminate the login dependency entirely, the alternative is
+converting these to **LaunchDaemons** in `/Library/LaunchDaemons`, which start at
+boot with no session. That needs `sudo`, and the daemons would run as root rather
+than as your user, so `.env`, `~/.tailscale/state` and the Homebrew paths would all
+need revisiting. Given automatic login is already on, the agents are the simpler
+correct answer here.
 
 The admin plist sets `ADMIN_BIND=0.0.0.0` and `ADMIN_ALLOW_INSECURE=1`, making the
 console reachable at `http://ZWs-Mac-mini.local:8788` with no password. That is a

@@ -17,7 +17,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "scopecheck": "ZW_MCP_QUIET=1 tsx scripts/scopecheck.ts",
     "admin": "tsx admin/server.ts",
-    "admin:lan": "ADMIN_BIND=0.0.0.0 ADMIN_ALLOW_INSECURE=1 tsx admin/server.ts"
+    "admin:lan": "ADMIN_BIND=0.0.0.0 ADMIN_ALLOW_INSECURE=1 tsx admin/server.ts",
+    "verify-boot": "./scripts/verify-boot.sh"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

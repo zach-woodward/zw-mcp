@@ -514,6 +514,7 @@ app.get('/api/roadmap', (_req: Request, res: Response) => {
     ],
     notes: [
       'Tailscale runs under launchd as com.zw.tailscaled in userspace mode (no root). Funnel config lives in the tailscaled state dir and self-restores on restart.',
+      'Reboot survival depends on automatic login being enabled and FileVault being off -- LaunchAgents load with the GUI session, not at boot. Run `npm run verify-boot` after any restart.',
       'The Funnel toggle is in this console rather than the MCP tool surface: /mcp is public while Funnel is on, so a tool that toggled it could be used by anyone holding the bearer token.',
       'models_read (Navigator) and content (CLM) are documented scopes that this account never grants. Both are excluded; Navigator and CLM work without them.',
       'npm run scopecheck is reliable only in the negative direction -- Docusign silently ignores unknown scopes, so a pass does not prove a scope is real.',
