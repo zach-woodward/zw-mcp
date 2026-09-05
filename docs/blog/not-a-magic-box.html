@@ -1,0 +1,365 @@
+<title>Not a Magic Box</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+  :root {
+    --paper:      #F5F7F8;
+    --paper-sunk: #E9EDEF;
+    --ink:        #10151A;
+    --ink-soft:   #4A555F;
+    --rule:       #D3DADE;
+    --accent:     #0E7C6B;
+    --ok:         #1A7F37;
+    --fail:       #B4412C;
+    --warn:       #8A6410;
+
+    --display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    --body:    "Newsreader", Georgia, "Times New Roman", serif;
+    --mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --measure: 65ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0D1216;
+      --paper-sunk: #151C22;
+      --ink:        #E4EAEE;
+      --ink-soft:   #97A4AE;
+      --rule:       #253038;
+      --accent:     #4FC7B0;
+      --ok:         #5CBE79;
+      --fail:       #E48070;
+      --warn:       #D2A54A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:      #0D1216;
+    --paper-sunk: #151C22;
+    --ink:        #E4EAEE;
+    --ink-soft:   #97A4AE;
+    --rule:       #253038;
+    --accent:     #4FC7B0;
+    --ok:         #5CBE79;
+    --fail:       #E48070;
+    --warn:       #D2A54A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 19px;
+    line-height: 1.62;
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 78ch;
+    margin: 0 auto;
+    padding: 0 28px 120px;
+  }
+  .col { max-width: var(--measure); }
+
+  /* ---------- masthead ---------- */
+  header.masthead {
+    padding: 72px 0 0;
+    max-width: var(--measure);
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 22px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2.6rem, 7vw, 4.1rem);
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+    margin: 0 0 20px;
+  }
+  .standfirst {
+    font-size: 1.24rem;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin: 0 0 34px;
+    text-wrap: pretty;
+  }
+  .byline {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--rule);
+    padding-top: 16px;
+    margin-bottom: 52px;
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  /* ---------- prose ---------- */
+  h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.62rem;
+    letter-spacing: -0.017em;
+    line-height: 1.2;
+    text-wrap: balance;
+    margin: 62px 0 6px;
+    max-width: var(--measure);
+  }
+  h2 + .eyebrow { margin-top: 0; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 58px 0 10px;
+  }
+  p { margin: 0 0 21px; max-width: var(--measure); text-wrap: pretty; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+  strong { font-weight: 500; color: var(--ink); }
+  em { font-style: italic; }
+
+  ul { max-width: var(--measure); padding-left: 1.1em; margin: 0 0 21px; }
+  li { margin-bottom: 9px; }
+
+  code {
+    font-family: var(--mono);
+    font-size: .84em;
+    background: var(--paper-sunk);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* ---------- log blocks: the subject's native material ---------- */
+  .log {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.85;
+    background: var(--paper-sunk);
+    border-left: 3px solid var(--rule);
+    padding: 20px 22px;
+    margin: 30px 0 32px;
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 2;
+  }
+  .log .s404, .log .s401, .log .s405 { color: var(--fail); font-weight: 600; }
+  .log .s200, .log .s201 { color: var(--ok); font-weight: 600; }
+  .log .s403 { color: var(--warn); font-weight: 600; }
+  .log .dim { color: var(--ink-soft); }
+  .log .mark { color: var(--accent); font-weight: 600; }
+  .log-caption {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: -22px 0 34px;
+    max-width: var(--measure);
+    line-height: 1.55;
+  }
+
+  /* ---------- pull quote ---------- */
+  blockquote {
+    margin: 44px 0;
+    padding: 0 0 0 26px;
+    border-left: 3px solid var(--accent);
+    max-width: var(--measure);
+  }
+  blockquote p {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 1.42rem;
+    line-height: 1.32;
+    letter-spacing: -0.014em;
+    margin: 0;
+  }
+
+  /* ---------- tally ---------- */
+  .tally {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 36px 0 40px;
+  }
+  .tally div { background: var(--paper); padding: 18px 16px; }
+  .tally dt {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .tally dd {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.85rem;
+    letter-spacing: -0.02em;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  hr {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin: 60px 0;
+    max-width: var(--measure);
+  }
+
+  footer.end {
+    max-width: var(--measure);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--rule);
+    padding-top: 20px;
+    margin-top: 66px;
+    line-height: 1.7;
+  }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="kicker">Field notes / integration</p>
+  <h1>Not a magic box</h1>
+  <p class="standfirst">Someone asked me why I didn&rsquo;t just build my own MCP server. It&rsquo;s not magic, they said &mdash; it&rsquo;s a collection of APIs. They were right, so I built one across an entire enterprise platform. Here&rsquo;s what the exercise actually taught me, most of which had nothing to do with MCP.</p>
+  <div class="byline">
+    <span>Zach Woodward</span>
+    <span>August 2026</span>
+    <span>~9 min</span>
+  </div>
+</header>
+
+<p>The premise was a challenge, and a fair one. Model Context Protocol had acquired a certain mystique &mdash; the thing you <em>adopt</em>, the thing vendors <em>ship</em>, the thing with a roadmap. Strip that away and you have JSON-RPC over HTTP, a manifest describing what your tools do, and a well-specified way to authenticate. That&rsquo;s the whole envelope. Everything else is the API you were already going to integrate.</p>
+
+<p>So I spent a few days building a server covering twelve product APIs of an enterprise agreement platform &mdash; e-signature, contract lifecycle management, workflow automation, an agreement repository, rooms, clickwraps, admin, monitoring, notary, web forms, connected fields, workspaces. Not a demo slice. The whole surface, with a deliberate escape hatch so nothing was unreachable.</p>
+
+<p>It worked. Eighty-four tools, running always-on, driving real transactions. And almost every hard problem I hit was a problem I would have hit building any integration at all.</p>
+
+<div class="tally">
+  <div><dt>Product APIs</dt><dd>12</dd></div>
+  <div><dt>Tools</dt><dd>84</dd></div>
+  <div><dt>Docs vs. reality</dt><dd>6</dd></div>
+  <div><dt>Silent bugs</dt><dd>4</dd></div>
+</div>
+
+<p class="eyebrow">The first real decision</p>
+<h2>A thousand tools is the same as none</h2>
+
+<p>The obvious move is to generate one tool per endpoint. Twelve APIs is well over a thousand endpoints, and the result would be unusable: no client renders that list well, no model chooses confidently from it, and the fifteen calls a real workflow needs are buried under nine hundred that nobody will ever call.</p>
+
+<p>So the tools come in two tiers. Hand-written tools cover what people actually do &mdash; find the agreements expiring this quarter, send this template to these signers, start that workflow &mdash; with descriptions aimed at a model rather than a developer, and responses trimmed to the fields that matter. Underneath, every product gets one <code>raw_request</code> tool taking a method, a path, and a body. Coverage is complete on day one; curation is an ergonomics layer, not a gate.</p>
+
+<p>That split turned out to matter more than I expected. The curated tools are where all the judgment lives &mdash; what to return, what to hide, what to name things. The raw tool is what lets you say yes to a request at 4pm without shipping code.</p>
+
+<blockquote><p>Responses are a design surface. One tool returned a per-page object for every page of every document. Correct, useless, and expensive.</p></blockquote>
+
+<p class="eyebrow">What actually took the time</p>
+<h2>The documentation is confidently wrong</h2>
+
+<p>Not maliciously. Just drifted, in the specific way that all large API documentation drifts. Six examples from one build:</p>
+
+<ul>
+  <li>The official spec modeled a workflow instance with one set of field names. The live API returned entirely different ones. My code, written from the spec, produced valid-looking objects with every useful field missing.</li>
+  <li>One API sorts and filters on <em>different names for the same field</em>. Filter by the nested path, sort by the flat one. Sorting by the filter name returns a 400 &mdash; which, to its credit, lists the legal alternatives.</li>
+  <li>The published base-path table put one product at the wrong path. Its own spec file disagreed. The spec was right.</li>
+  <li>The migration guide gives a documented path for folder lookup that returns 405, because that route only accepts POST. The real path is one segment deeper.</li>
+  <li>Two APIs in the same platform answer in <code>snake_case</code>; their siblings answer in <code>camelCase</code>. One endpoint wraps its results in <code>data</code> while every neighbor uses a named key.</li>
+  <li>A product on my build list <strong>does not exist</strong>. Six candidate endpoint shapes, all 404, zero documentation anywhere. Some names live on in slide decks long after they stop being APIs.</li>
+</ul>
+
+<p>None of these were discoverable by reading. All of them were obvious within seconds of calling the endpoint and looking at what came back. Which is the actual lesson: <strong>verify against the live API, not the specification.</strong> The bugs that scare me aren&rsquo;t the ones that throw &mdash; those announce themselves. It&rsquo;s the four projection bugs that returned a well-formed object with the interesting parts quietly absent.</p>
+
+<p class="eyebrow">A distinction worth internalizing</p>
+<h2>Error messages are data</h2>
+
+<p>Two endpoints, two 403s, completely different meanings. One returned a bare 403 with an empty body. The other returned:</p>
+
+<div class="log"><span class="s403">403</span> <span class="dim">{</span>"error"<span class="dim">:</span> "Organization does not have <span class="mark">entitlement</span>"<span class="dim">}</span></div>
+<p class="log-caption">A specific error is a working endpoint. The request routed, the service recognized the organization, and it evaluated a permission. The bare 403 was the wrong host.</p>
+
+<p>That difference resolved a conflict between two official sources about where a service lived. The specific error proved the request had reached the right service and been correctly refused; the empty one proved nothing. I had two plausible hosts and no way to choose &mdash; until I stopped reading and started comparing failure modes.</p>
+
+<p>I got the inverse of this badly wrong earlier in the same build. An API returned <code>consent_required</code>, and I concluded the account lacked entitlement, wrote it up as unavailable, and moved on. It meant exactly what it said: consent had not been granted, because I had never requested it. The person I was working with told me flatly that the product was available. He was right, I was wrong, and the fix was one line in a scope list. <em>Not authorized</em> and <em>not entitled</em> are different failures, and reading one as the other cost an hour and nearly cost a whole product.</p>
+
+<p class="eyebrow">The part I didn&rsquo;t see coming</p>
+<h2>MCP is also an auth spec</h2>
+
+<p>I built the server with a bearer token. Simple, correct, works everywhere &mdash; the CLI, the desktop app, my own code using the agent SDK. Then I tried to connect it as a hosted connector and it refused, complaining it couldn&rsquo;t register with a sign-in service.</p>
+
+<p>The connector UI has a URL field and two optional OAuth fields. <strong>There is no field for a header.</strong> I&rsquo;d assumed one existed and gone looking for it, which was the wrong instinct; the answer was published, and I should have read it before I started guessing. The server logs told the story exactly:</p>
+
+<div class="log">POST  /                                          -> <span class="s401">401</span>
+GET   /.well-known/oauth-protected-resource/mcp  -> <span class="s404">404</span>
+GET   /.well-known/oauth-protected-resource      -> <span class="s404">404</span>
+GET   /.well-known/oauth-authorization-server    -> <span class="s404">404</span>
+POST  /register                                  -> <span class="s404">404</span></div>
+<p class="log-caption">Four 404s. The client was doing everything right; my server had none of it.</p>
+
+<p>A hosted connector doesn&rsquo;t run on your machine. It connects from the vendor&rsquo;s infrastructure, and it follows the MCP authorization spec: hit the endpoint, take the 401, read the <code>WWW-Authenticate</code> header, fetch the protected-resource metadata, discover the authorization server, register itself dynamically, then run authorization-code with PKCE. Those OAuth fields are optional precisely <em>because</em> dynamic registration normally fills them in.</p>
+
+<p>So the server needed to be an OAuth 2.1 authorization server. Four RFCs: protected resource metadata, authorization server metadata, dynamic client registration, and resource indicators for audience binding. That sounds heavier than it is &mdash; the flow is well-specified enough that a focused implementation is a few hundred lines, and the spec explicitly allows hosting it alongside the resource server.</p>
+
+<p>An hour later the same log read differently:</p>
+
+<div class="log">GET   /.well-known/oauth-protected-resource      -> <span class="s200">200</span>
+GET   /.well-known/oauth-authorization-server    -> <span class="s200">200</span>
+POST  /register                                  -> <span class="s201">201</span>
+POST  /token                                     -> <span class="s200">200</span></div>
+<p class="log-caption">Same client, same URL, no configuration changed on its side.</p>
+
+<p>The design call I&rsquo;m happiest with: <strong>both paths still work.</strong> The static token authenticates local clients; OAuth serves the hosted ones. Replacing one with the other would have fixed a connector by breaking everything else I&rsquo;d already wired up.</p>
+
+<p class="eyebrow">Where the boundaries landed</p>
+<h2>The interesting decisions were about exposure</h2>
+
+<p>Building the thing is one problem. Deciding what can reach it is a different one, and it produced the choices I thought hardest about.</p>
+
+<p>The operations console &mdash; the panel that lists every tool, runs them ad hoc, and tails the logs &mdash; is a <em>separate application</em>. It drives the server through the same authenticated endpoint any client uses, which means it doubles as an end-to-end test: anything the console can do, a real client can do. It also means the server itself stays free of UI.</p>
+
+<p>And it stays on the local network, never published. That console can send and void real agreements. The moment the server went public, the question stopped being &ldquo;is this convenient&rdquo; and became &ldquo;what is the blast radius.&rdquo; So the console refuses to bind to a public interface without a password unless you set an explicit flag saying you meant it. Fail closed, and make the override loud enough that nobody trips over it by accident.</p>
+
+<p>The same reasoning kept a tempting feature out. I was asked to add a tool that toggles the public tunnel on and off. It belongs in the console, not in the tool surface &mdash; because while the tunnel is open, the tool surface <em>is</em> the public internet. A kill switch reachable from the thing it&rsquo;s meant to kill isn&rsquo;t a kill switch.</p>
+
+<hr>
+
+<p class="eyebrow">The answer to the question</p>
+<h2>So: why not just build your own?</h2>
+
+<p>You should, if you have a reason to. Here&rsquo;s what it actually costs, honestly.</p>
+
+<p>The MCP part is small. A server, a transport, a set of typed tool definitions, some resources so a model can orient itself. The protocol is well-specified and the SDK does the tedious parts. If you have integrated with an HTTP API before, you have already done the harder version of this.</p>
+
+<p>The auth part is real work, and it&rsquo;s the part most people will underestimate &mdash; not because OAuth is hard, but because <em>you won&rsquo;t know you need it</em> until a hosted client refuses to connect. Budget for it if anything cloud-hosted is going to talk to your server.</p>
+
+<p>Everything else &mdash; the great majority of it &mdash; is the ordinary, unglamorous work of integrating a large platform: discovering that a host is data-center-specific and must be resolved at runtime, that a documented scope your account can&rsquo;t grant will fail an entire authorization request rather than being ignored, that an identifier lives in a URL tail rather than an <code>id</code> field. That work does not go away if you buy the connector instead. It just happens somewhere you can&rsquo;t see it, and you inherit the result.</p>
+
+<p>Which is the real argument for building your own. Not that it&rsquo;s cheap &mdash; it isn&rsquo;t particularly. It&rsquo;s that when a tool returns the wrong thing, you can open the log, see the actual request, and fix it. Every one of the six documentation discrepancies above is now a comment in my source with the date I verified it and the response that proved it. None of them would have been visible to me through someone else&rsquo;s black box.</p>
+
+<blockquote><p>MCP isn&rsquo;t a magic box. It&rsquo;s a thin, well-specified envelope around the integration work you were going to do anyway &mdash; and doing that work yourself is how you find out what&rsquo;s actually in it.</p></blockquote>
+
+<footer class="end">
+  Built against a developer/demo environment. No customer data appears in this post.<br>
+  Twelve product APIs, eighty-four tools, one escape hatch per product, and a great many logs.
+</footer>
+
+</div>
