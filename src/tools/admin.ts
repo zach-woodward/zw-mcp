@@ -14,7 +14,7 @@ import { guard, ok, pick } from '../lib/respond.js';
  *
  * Listing users requires `account_id` (or organization/domain/email): without it
  * the API returns 400 invalid_request_parameter_value rather than defaulting.
- * VERIFIED 2026-08-19 against org 4773242b-… (live responses).
+ * VERIFIED 2026-08-19 against the organization (live responses).
  * Deliberately read-heavy -- user creation and redaction are reachable through
  * admin_raw_request rather than being given a friendly tool.
  */

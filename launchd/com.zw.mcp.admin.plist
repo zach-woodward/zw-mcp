@@ -10,12 +10,12 @@
   <key>ProgramArguments</key>
   <array>
     <string>/opt/homebrew/bin/node</string>
-    <string>/Users/zwmacminiai/dev/zw-mcp/dist/admin/server.js</string>
+    <string>__HOME__/dev/zw-mcp/dist/admin/server.js</string>
   </array>
 
   <!-- Must be the project root: .env and admin/public are both resolved from here. -->
   <key>WorkingDirectory</key>
-  <string>/Users/zwmacminiai/dev/zw-mcp</string>
+  <string>__HOME__/dev/zw-mcp</string>
 
   <key>RunAtLoad</key>
   <true/>
@@ -25,9 +25,9 @@
   <integer>10</integer>
 
   <key>StandardOutPath</key>
-  <string>/Users/zwmacminiai/dev/zw-mcp/logs/launchd.admin.out.log</string>
+  <string>__HOME__/dev/zw-mcp/logs/launchd.admin.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/zwmacminiai/dev/zw-mcp/logs/launchd.admin.err.log</string>
+  <string>__HOME__/dev/zw-mcp/logs/launchd.admin.err.log</string>
 
   <key>EnvironmentVariables</key>
   <dict>
@@ -36,7 +36,7 @@
     <key>NODE_ENV</key>
     <string>production</string>
 
-    <!-- Reachable from the LAN at http://ZWs-Mac-mini.local:8788
+    <!-- Reachable from the LAN at http://your-host.local:8788
          ADMIN_ALLOW_INSECURE=1 is the explicit acknowledgement that this console
          has no password. It can send and void envelopes, so if this account ever
          stops being a demo account, set ADMIN_PASSWORD here and drop this flag. -->

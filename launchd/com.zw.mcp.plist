@@ -9,12 +9,12 @@
   <key>ProgramArguments</key>
   <array>
     <string>/opt/homebrew/bin/node</string>
-    <string>/Users/zwmacminiai/dev/zw-mcp/dist/src/index.js</string>
+    <string>__HOME__/dev/zw-mcp/dist/src/index.js</string>
   </array>
 
   <!-- Config is read from .env in this directory. -->
   <key>WorkingDirectory</key>
-  <string>/Users/zwmacminiai/dev/zw-mcp</string>
+  <string>__HOME__/dev/zw-mcp</string>
 
   <key>RunAtLoad</key>
   <true/>
@@ -26,9 +26,9 @@
   <integer>10</integer>
 
   <key>StandardOutPath</key>
-  <string>/Users/zwmacminiai/dev/zw-mcp/logs/launchd.out.log</string>
+  <string>__HOME__/dev/zw-mcp/logs/launchd.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/zwmacminiai/dev/zw-mcp/logs/launchd.err.log</string>
+  <string>__HOME__/dev/zw-mcp/logs/launchd.err.log</string>
 
   <key>EnvironmentVariables</key>
   <dict>

@@ -10,7 +10,7 @@ import { guard, ok, pick, saveDownload } from '../lib/respond.js';
  * (declared version v2), not from the SOAP-migration table -- the two disagree.
  * Notably folder lookup by path is `/folders/path?path=`, NOT `/folders?path=`;
  * the latter is a 405 because /folders only accepts POST.
- * VERIFIED 2026-08-19 against the Woodward Systems UAT account (b99e0abc-…).
+ * VERIFIED 2026-08-19 against a live CLM-entitled UAT account.
  */
 
 /**

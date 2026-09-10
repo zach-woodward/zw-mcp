@@ -1,6 +1,6 @@
 # ZW MCP
 
-A universal DocuSign MCP server. One always-on service on the Mac mini exposing
+A universal Docusign MCP server. One always-on service on the Mac mini exposing
 **every DocuSign product API** -- eSignature, Navigator, CLM, Maestro, Web Forms,
 Rooms, Click, Admin, Monitor, Notary, Connected Fields, Workspaces, Trust Records
 -- to Claude Desktop, claude.ai, Claude Code, Claude Cowork, and the skinned demo
@@ -62,7 +62,7 @@ so a ✅ does not prove a scope is real -- but `consent_required` does prove it 
 recognised and simply not yet granted.
 Then drop it (or the product) from `DS_PRODUCTS` and re-run consent. This is not
 hypothetical: Navigator's documented-best-practice `models_read` scope is not
-grantable on the Woodward Systems demo account, and including it broke every
+grantable on the a live demo account, and including it broke every
 Navigator call until `scopecheck` isolated it.
 
 To consent for a later phase's scopes in the same click:
@@ -94,7 +94,7 @@ From another machine on the LAN, swap in the host's address:
 claude mcp add zw-mcp \
   --transport http \
   --scope user \
-  http://ZWs-Mac-mini.local:8787/mcp \
+  http://your-host.local:8787/mcp \
   --header "Authorization: Bearer <ZW_MCP_TOKEN>"
 ```
 
@@ -103,7 +103,7 @@ claude mcp add zw-mcp \
 Settings -> Connectors -> **Add custom connector**:
 
 - **Name**: `ZW MCP`
-- **URL**: `http://ZWs-Mac-mini.local:8787/mcp` (or `http://127.0.0.1:8787/mcp` on the host itself)
+- **URL**: `http://your-host.local:8787/mcp` (or `http://127.0.0.1:8787/mcp` on the host itself)
 - **Header**: `Authorization: Bearer <ZW_MCP_TOKEN>`
 
 Or edit `~/Library/Application Support/Claude/claude_desktop_config.json` directly:
@@ -113,7 +113,7 @@ Or edit `~/Library/Application Support/Claude/claude_desktop_config.json` direct
   "mcpServers": {
     "zw-mcp": {
       "type": "http",
-      "url": "http://ZWs-Mac-mini.local:8787/mcp",
+      "url": "http://your-host.local:8787/mcp",
       "headers": { "Authorization": "Bearer <ZW_MCP_TOKEN>" }
     }
   }
@@ -124,7 +124,7 @@ Or edit `~/Library/Application Support/Claude/claude_desktop_config.json` direct
 
 Settings -> Connectors -> **Add custom connector**:
 
-- **URL**: `https://zws-mac-mini.tail9e5da0.ts.net/mcp`
+- **URL**: `https://your-host.your-tailnet.ts.net/mcp`
 - Leave **OAuth client ID** and **client secret** blank
 
 Claude custom connectors have **no field for a static bearer header**. They speak
@@ -237,7 +237,7 @@ Do **not** raw port-forward. This host uses Tailscale Funnel, which terminates T
 and gives a real public hostname:
 
 ```
-https://zws-mac-mini.tail9e5da0.ts.net/mcp
+https://your-host.your-tailnet.ts.net/mcp
 ```
 
 Setup, for reference or rebuilding:
@@ -250,7 +250,7 @@ tailscaled --tun=userspace-networking \
   --socket=$HOME/.tailscale/tailscaled.sock \
   --statedir=$HOME/.tailscale/state &
 
-tailscale --socket=$HOME/.tailscale/tailscaled.sock up --hostname=zws-mac-mini
+tailscale --socket=$HOME/.tailscale/tailscaled.sock up --hostname=your-host
 tailscale --socket=$HOME/.tailscale/tailscaled.sock funnel --bg 8787
 ```
 
@@ -325,12 +325,12 @@ provides public access. They are separate so any one can be restarted alone.
 
 ```bash
 npm run build
-cp launchd/com.zw.mcp.plist launchd/com.zw.mcp.admin.plist \
-   launchd/com.zw.tailscaled.plist ~/Library/LaunchAgents/
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.zw.mcp.plist
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.zw.mcp.admin.plist
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.zw.tailscaled.plist
+npm run install-launchd
 ```
+
+The plists are templated with `__HOME__` so the repo carries no machine-specific
+paths; the installer substitutes your home directory and bootstraps each agent.
+It skips the Tailscale agent if `tailscaled` is not installed.
 
 Verify:
 
@@ -413,7 +413,7 @@ need revisiting. Given automatic login is already on, the agents are the simpler
 correct answer here.
 
 The admin plist sets `ADMIN_BIND=0.0.0.0` and `ADMIN_ALLOW_INSECURE=1`, making the
-console reachable at `http://ZWs-Mac-mini.local:8788` with no password. That is a
+console reachable at `http://your-host.local:8788` with no password. That is a
 deliberate choice for a demo account -- see the warning under **Admin console**.
 
 Logs: `logs/zw-mcp.log` (structured, redacted), `logs/launchd.{out,err}.log`, and
@@ -473,7 +473,7 @@ By default the console binds `127.0.0.1`. To open it to your LAN:
 npm run admin:lan          # binds 0.0.0.0, no password (ADMIN_ALLOW_INSECURE=1)
 ```
 
-Then browse to `http://<mac-mini-lan-ip>:8788` or `http://ZWs-Mac-mini.local:8788`.
+Then browse to `http://<mac-mini-lan-ip>:8788` or `http://your-host.local:8788`.
 
 **Understand what that exposes.** The console holds the ZW MCP bearer token
 server-side and its Run tab can send and void real envelopes, so reaching the

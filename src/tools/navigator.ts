@@ -10,7 +10,7 @@ const AGREEMENTS = '/v1/accounts/{accountId}/agreements';
  * nested snake_case path (`provisions.expiration_date`), but SORT takes the
  * top-level name (`expiration_date`). Sorting by `provisions.expiration_date`
  * returns a 400 listing the legal fields.
- * VERIFIED 2026-08-19 against demo account b99e0abc-… (live 400 response).
+ * VERIFIED 2026-08-19 against a live demo account (live 400 response).
  */
 const SORTABLE = [
   'expiration_date',

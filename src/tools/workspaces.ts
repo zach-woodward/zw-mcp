@@ -8,7 +8,7 @@ const WS = '/v1/accounts/{accountId}/workspaces';
 /**
  * Workspaces answers in snake_case (like the Admin API, unlike eSignature), and
  * wraps lists as { workspaces, result_set_size, total_row_count }.
- * VERIFIED 2026-08-19 against demo account b99e0abc-… (live payload).
+ * VERIFIED 2026-08-19 against a live demo account (live payload).
  */
 const WORKSPACE_KEYS = [
   'workspace_id',

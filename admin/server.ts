@@ -483,7 +483,7 @@ app.get('/api/roadmap', (_req: Request, res: Response) => {
         detail:
           'The endpoint is correct -- api-d.docusign.com/v1/organizations/{orgId}/stream returns a ' +
           'Monitor-specific 403, meaning it routed and evaluated entitlement. Nothing to fix in code.',
-        action: 'Ask your Docusign rep to enable Monitor on org 4773242b-…',
+        action: 'Ask your Docusign rep to enable Monitor on the organization',
         severity: 'external',
       },
       {

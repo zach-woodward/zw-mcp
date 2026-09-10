@@ -25,7 +25,7 @@ graph LR
   end
 
   subgraph edge["Network edge"]
-    TS["Tailscale Funnel<br/>public HTTPS<br/>zws-mac-mini.tail9e5da0.ts.net"]
+    TS["Tailscale Funnel<br/>public HTTPS<br/>your-host.your-tailnet.ts.net"]
   end
 
   subgraph mini["Mac mini (launchd, always on)"]
@@ -282,8 +282,7 @@ ZW MCP and every skin gets it. ZW MCP itself stays UI-free.
 
 ## 8. Per-product coverage
 
-**84 tools across 12 products.** Status as of Phase 4, verified against the Woodward Systems demo account
-(`b99e0abc-…`, org `4773242b-…`, base URI `https://demo.docusign.net`). Base URIs and scopes are transcribed from the verified
+**84 tools across 12 products.** Status as of Phase 4, verified against a live demo account. Base URIs and scopes are transcribed from the verified
 tables in [`specs/BASE_PATHS.md`](../specs/BASE_PATHS.md).
 
 | API | Base URI (demo) | Scopes | Curated tools | Raw hatch | Spec source | Status |

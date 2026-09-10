@@ -18,7 +18,7 @@ import { logger } from '../lib/logger.js';
  *   Prod https://auth.springcm.com/api/v2/{accountId}/account
  *
  * ---------------------------------------------------------------------------
- * VERIFIED 2026-08-19 against the Woodward Systems UAT account (b99e0abc-…).
+ * VERIFIED 2026-08-19 against a live CLM-entitled UAT account.
  * Discovery returns 200 once the token carries `spring_read`/`spring_write`.
  *
  * Note for anyone reading the CLM docs: every CLM page says "Developing with the

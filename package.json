@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "ZW MCP - universal DocuSign MCP server (all product APIs, two-tier tool design)",
+  "description": "Universal Docusign MCP server: every product API behind a two-tier tool design, with OAuth for hosted MCP clients",
   "engines": {
     "node": ">=20"
   },
@@ -18,7 +18,8 @@
     "scopecheck": "ZW_MCP_QUIET=1 tsx scripts/scopecheck.ts",
     "admin": "tsx admin/server.ts",
     "admin:lan": "ADMIN_BIND=0.0.0.0 ADMIN_ALLOW_INSECURE=1 tsx admin/server.ts",
-    "verify-boot": "./scripts/verify-boot.sh"
+    "verify-boot": "./scripts/verify-boot.sh",
+    "install-launchd": "./scripts/install-launchd.sh"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

@@ -153,7 +153,7 @@ and the value of generated types is mostly for future curation work, not runtime
 
 ## CLM specifics (verified against a live UAT account)
 
-VERIFIED 2026-08-19 against Woodward Systems (`b99e0abc-…`), UAT.
+VERIFIED 2026-08-19 against a live demo account (`{accountId}`), UAT.
 
 CLM does not behave like the other products and does not use the shared client.
 

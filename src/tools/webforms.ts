@@ -10,7 +10,7 @@ const FORMS = '/v1.1/accounts/{accountId}/forms';
  * A form's human-readable name lives in `formProperties.name`, not at the top
  * level, so a flat projection returns near-anonymous ids. `compactForm` flattens
  * the two nested objects that matter.
- * VERIFIED 2026-08-19 against demo account b99e0abc-… (live form payload).
+ * VERIFIED 2026-08-19 against a live demo account (live form payload).
  */
 function compactForm(f: Record<string, unknown>) {
   const props = (f.formProperties ?? {}) as Record<string, unknown>;

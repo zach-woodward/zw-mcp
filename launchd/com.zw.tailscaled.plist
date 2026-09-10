@@ -14,12 +14,12 @@
   <array>
     <string>/opt/homebrew/bin/tailscaled</string>
     <string>--tun=userspace-networking</string>
-    <string>--socket=/Users/zwmacminiai/.tailscale/tailscaled.sock</string>
-    <string>--statedir=/Users/zwmacminiai/.tailscale/state</string>
+    <string>--socket=__HOME__/.tailscale/tailscaled.sock</string>
+    <string>--statedir=__HOME__/.tailscale/state</string>
   </array>
 
   <key>WorkingDirectory</key>
-  <string>/Users/zwmacminiai/.tailscale</string>
+  <string>__HOME__/.tailscale</string>
 
   <key>RunAtLoad</key>
   <true/>
@@ -29,9 +29,9 @@
   <integer>10</integer>
 
   <key>StandardOutPath</key>
-  <string>/Users/zwmacminiai/dev/zw-mcp/logs/launchd.tailscaled.out.log</string>
+  <string>__HOME__/dev/zw-mcp/logs/launchd.tailscaled.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/zwmacminiai/dev/zw-mcp/logs/launchd.tailscaled.err.log</string>
+  <string>__HOME__/dev/zw-mcp/logs/launchd.tailscaled.err.log</string>
 
   <key>EnvironmentVariables</key>
   <dict>

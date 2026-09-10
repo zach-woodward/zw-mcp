@@ -7,7 +7,7 @@ import { guard, ok } from '../lib/respond.js';
  * Connected Fields exposes exactly one endpoint: the tab groups an account's
  * installed extension apps contribute. Those tab groups are what you attach to
  * an envelope tab to have a third party verify the data a signer enters.
- * VERIFIED 2026-08-19 against demo account b99e0abc-… (live 200).
+ * VERIFIED 2026-08-19 against a live demo account (live 200).
  */
 const TAB_GROUPS = '/v1/accounts/{accountId}/connected-fields/tab-groups';
 

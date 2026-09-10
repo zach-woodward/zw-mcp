@@ -4,7 +4,14 @@
 set -uo pipefail
 
 UID_NUM="$(id -u)"
-PUBLIC="${ZW_MCP_PUBLIC_URL:-https://zws-mac-mini.tail9e5da0.ts.net}"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Prefer an explicit env var, else read the public URL out of .env, else skip the
+# public checks rather than reporting a placeholder as broken.
+if [ -z "${ZW_MCP_PUBLIC_URL:-}" ] && [ -f "$REPO/.env" ]; then
+  ZW_MCP_PUBLIC_URL="$(grep -E '^ZW_MCP_PUBLIC_URL=' "$REPO/.env" | cut -d= -f2- | tr -d '"' || true)"
+fi
+PUBLIC="${ZW_MCP_PUBLIC_URL:-}"
 fail=0
 
 check() { # name, actual, expected
@@ -41,9 +48,13 @@ echo
 echo "endpoints"
 check "MCP /health (local)"   "$(curl -s -m 10 -o /dev/null -w '%{http_code}' http://127.0.0.1:8787/health)" "200"
 check "admin console (local)" "$(curl -s -m 10 -o /dev/null -w '%{http_code}' http://127.0.0.1:8788)" "200"
-check "public /health"        "$(curl -s -m 20 -o /dev/null -w '%{http_code}' "$PUBLIC/health")" "200"
-check "OAuth metadata"        "$(curl -s -m 20 -o /dev/null -w '%{http_code}' "$PUBLIC/.well-known/oauth-protected-resource")" "200"
-check "MCP rejects no token"  "$(curl -s -m 20 -o /dev/null -w '%{http_code}' -X POST "$PUBLIC/mcp" -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -d '{}')" "401"
+if [ -n "$PUBLIC" ]; then
+  check "public /health"        "$(curl -s -m 20 -o /dev/null -w '%{http_code}' "$PUBLIC/health")" "200"
+  check "OAuth metadata"        "$(curl -s -m 20 -o /dev/null -w '%{http_code}' "$PUBLIC/.well-known/oauth-protected-resource")" "200"
+  check "MCP rejects no token"  "$(curl -s -m 20 -o /dev/null -w '%{http_code}' -X POST "$PUBLIC/mcp" -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -d '{}')" "401"
+else
+  printf '  ➖ %-34s %s\n' "public endpoint" "skipped (set ZW_MCP_PUBLIC_URL in .env)"
+fi
 
 echo
 echo "tailscale funnel mappings"

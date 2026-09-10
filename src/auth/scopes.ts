@@ -19,11 +19,11 @@ export const PRODUCT_SCOPES: Record<string, string[]> = {
 
   // `models_read` is deliberately NOT here. The docs recommend requesting it for
   // forward-compatibility, but it is not required by any Navigator endpoint today
-  // and the Woodward Systems demo account cannot consent to it -- and because a
+  // and the a live demo account cannot consent to it -- and because a
   // grant is all-or-nothing, including it made every Navigator call fail with
   // consent_required. Add it back only once an account proves it is grantable
   // (`npm run scopecheck` reports per-scope grantability).
-  // VERIFIED 2026-08-19 scopecheck against demo account b99e0abc-…
+  // VERIFIED 2026-08-19 scopecheck against a live demo account
   navigator: ['adm_store_unified_repo_read'],
 
   // `content` is deliberately omitted. The scopes reference lists it under the CLM
@@ -31,7 +31,7 @@ export const PRODUCT_SCOPES: Record<string, string[]> = {
   // consent grant covering it returns a token WITHOUT it (29 requested, 28
   // granted), and CLM document download works fine without it. Requesting it only
   // makes the granted-scope list look wrong.
-  // VERIFIED 2026-08-19 against demo account b99e0abc-… (grant diff + live download).
+  // VERIFIED 2026-08-19 against a live demo account (grant diff + live download).
   clm: ['spring_read', 'spring_write'],
 
   // VERIFIED 2026-08-19 https://developers.docusign.com/docs/maestro-api/how-to/trigger-workflow/

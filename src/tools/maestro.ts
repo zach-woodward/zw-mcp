@@ -23,7 +23,7 @@ const WORKFLOW_KEYS = ['id', 'name', 'status', 'account_id'] as const;
  * models an instance as instance_name/instance_state/workflow_id, but the API
  * actually returns name/workflow_status/template_id. Projecting on the spec's
  * names silently returned near-empty objects.
- * VERIFIED 2026-08-19 against demo account b99e0abc-… (live instance payload).
+ * VERIFIED 2026-08-19 against a live demo account (live instance payload).
  */
 const INSTANCE_KEYS = [
   'id',
@@ -41,7 +41,7 @@ const INSTANCE_KEYS = [
  * Older docs describe that URL as carrying `mtid`/`mtsec` query params minted at
  * publish time; the live API returns a plain /actions/trigger URL instead.
  * Honouring whatever the API hands back keeps us right either way.
- * VERIFIED 2026-08-19 against demo account b99e0abc-… (live response had no mtid/mtsec).
+ * VERIFIED 2026-08-19 against a live demo account (live response had no mtid/mtsec).
  */
 async function resolveTriggerPath(workflowId: string): Promise<string> {
   const reqs = await apiRequest<TriggerRequirements>('maestro', {
