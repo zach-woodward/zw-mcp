@@ -14,6 +14,12 @@ fi
 PUBLIC="${ZW_MCP_PUBLIC_URL:-}"
 fail=0
 
+# Some home routers return NXDOMAIN for tailnet hostnames, which makes every
+# public check fail locally even when the endpoint is perfectly healthy from the
+# internet. Resolve over DoH so this script tests the service, not the router.
+DOH="${VERIFY_DOH_URL:-https://1.1.1.1/dns-query}"
+pubcurl() { curl -s --doh-url "$DOH" "$@" 2>/dev/null; }
+
 check() { # name, actual, expected
   if [ "$2" = "$3" ]; then printf '  ✅ %-34s %s\n' "$1" "$2"
   else printf '  ❌ %-34s %s (expected %s)\n' "$1" "$2" "$3"; fail=$((fail+1)); fi
@@ -49,9 +55,15 @@ echo "endpoints"
 check "MCP /health (local)"   "$(curl -s -m 10 -o /dev/null -w '%{http_code}' http://127.0.0.1:8787/health)" "200"
 check "admin console (local)" "$(curl -s -m 10 -o /dev/null -w '%{http_code}' http://127.0.0.1:8788)" "200"
 if [ -n "$PUBLIC" ]; then
-  check "public /health"        "$(curl -s -m 20 -o /dev/null -w '%{http_code}' "$PUBLIC/health")" "200"
-  check "OAuth metadata"        "$(curl -s -m 20 -o /dev/null -w '%{http_code}' "$PUBLIC/.well-known/oauth-protected-resource")" "200"
-  check "MCP rejects no token"  "$(curl -s -m 20 -o /dev/null -w '%{http_code}' -X POST "$PUBLIC/mcp" -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -d '{}')" "401"
+  check "public /health"        "$(pubcurl -m 20 -o /dev/null -w '%{http_code}' "$PUBLIC/health")" "200"
+  check "OAuth metadata"        "$(pubcurl -m 20 -o /dev/null -w '%{http_code}' "$PUBLIC/.well-known/oauth-protected-resource")" "200"
+  check "MCP rejects no token"  "$(pubcurl -m 20 -o /dev/null -w '%{http_code}' -X POST "$PUBLIC/mcp" -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' -d '{}')" "401"
+
+  # Flag the local-resolver problem explicitly rather than letting it look like
+  # a service outage next time.
+  if ! curl -s -m 8 -o /dev/null "$PUBLIC/health" 2>/dev/null; then
+    printf '  ⚠️  %-34s %s\n' "local DNS" "this machine cannot resolve the public host (router NXDOMAIN); the endpoint itself is fine"
+  fi
 else
   printf '  ➖ %-34s %s\n' "public endpoint" "skipped (set ZW_MCP_PUBLIC_URL in .env)"
 fi

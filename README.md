@@ -379,6 +379,13 @@ Verify the whole stack after a restart:
 npm run verify-boot
 ```
 
+The public checks resolve over DNS-over-HTTPS. Some home routers return NXDOMAIN
+for tailnet hostnames, which makes a perfectly healthy public endpoint look dead
+from inside your own network -- `curl` fails at DNS before the request ever
+leaves the building. If that happens, the script says so explicitly rather than
+reporting an outage. To fix it at the source, point the machine's resolver at
+`1.1.1.1` or `8.8.8.8` instead of the router.
+
 It checks all three agents, the local and public endpoints, that an unauthenticated
 request is still rejected, the Tailscale Funnel mappings, and both reboot
 prerequisites above.
