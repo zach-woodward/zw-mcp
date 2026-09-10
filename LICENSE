@@ -1,21 +1,14 @@
-MIT License
+Copyright (c) 2026 Zach Woodward. All rights reserved.
 
-Copyright (c) 2026 Zach Woodward
+This source is published for reference and demonstration. It is NOT licensed for
+reuse, redistribution, or derivative works.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+You may read this code, and you may clone it to run and evaluate it privately.
+You may not redistribute it, publish modified versions, or incorporate it into
+another project without prior written permission from the copyright holder.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+No warranty of any kind is provided. This software integrates with third-party
+APIs; the names, trademarks, and API specifications of those vendors belong to
+their respective owners and are used here for interoperability and reference only.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+To ask about a different license for a specific use, open an issue.

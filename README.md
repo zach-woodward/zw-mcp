@@ -568,3 +568,16 @@ scripts/            consent.ts, smoke.ts
 launchd/            com.zw.mcp.plist
 docs/ARCHITECTURE.md
 ```
+
+## License
+
+Source-available, **not** open source. See [LICENSE](LICENSE): you may read and
+privately run this code; redistribution and derivative works need permission.
+
+It is published this way deliberately. The repository is a reference
+implementation and a record of how the integration was built -- including the
+places where vendor documentation disagreed with vendor behaviour. Granting reuse
+rights would be a claim about ownership that is not mine alone to make.
+
+Nothing here contains credentials. `.env`, private keys, and OAuth state are
+gitignored and verified absent from the entire commit history.
