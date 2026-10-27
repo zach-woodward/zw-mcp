@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ZW MCP — Architecture &amp; the CLM API surface</title>
+<style>
+  @page { size: letter; margin: 9mm 9mm 7mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 7.9pt/1.3 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #1b1f24;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  h1 { font-size: 14pt; margin: 0 0 .6mm; letter-spacing: -.35pt; font-weight: 700; }
+  .sub { color: #5b6470; font-size: 7.6pt; margin: 0; }
+  h2 {
+    font-size: 8.2pt; text-transform: uppercase; letter-spacing: .5pt;
+    margin: 0 0 1.4mm; color: #0b4da2; font-weight: 700;
+    border-bottom: .6pt solid #c9d4e2; padding-bottom: .7mm;
+  }
+  .cols { column-count: 2; column-gap: 5.5mm; }
+  section { break-inside: avoid; margin-bottom: 2.2mm; }
+  p { margin: 0 0 1.2mm; }
+  ul { margin: 0 0 1.5mm; padding-left: 3.4mm; }
+  li { margin: 0 0 .6mm; }
+  code, .mono { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 7.2pt; }
+  code { background: #eef2f7; padding: 0 .6mm; border-radius: .6mm; }
+  table { border-collapse: collapse; width: 100%; font-size: 7.3pt; }
+  th {
+    text-align: left; font-weight: 700; color: #3d4753;
+    border-bottom: .6pt solid #9fb0c4; padding: .55mm .9mm;
+  }
+  td { padding: .55mm .9mm; border-bottom: .35pt solid #e2e8f0; vertical-align: top; }
+  .ok   { color: #0f7a34; font-weight: 700; }
+  .no   { color: #b3261e; font-weight: 700; }
+  .flow {
+    background: #f5f8fb; border: .5pt solid #ccd8e6; border-radius: 1.4mm;
+    padding: 1.6mm 2.2mm; font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 6.4pt; line-height: 1.42; white-space: pre; margin: 0 0 1.5mm;
+  }
+  .note {
+    border-left: 1.4pt solid #d99100; background: #fdf7ec;
+    padding: 1.1mm 1.8mm; margin: 0 0 1.2mm; font-size: 7.1pt;
+  }
+  .note b { color: #8a5b00; }
+  .hdr { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.2pt solid #1b1f24; padding-bottom: 1.2mm; margin-bottom: 2.2mm; }
+  .meta { font-size: 7pt; color: #5b6470; text-align: right; line-height: 1.5; }
+  footer {
+    margin-top: 1.4mm; padding-top: 1mm; border-top: .5pt solid #c9d4e2;
+    font-size: 6.6pt; color: #6b7480; display: flex; justify-content: space-between;
+  }
+  .tag { display: inline-block; background: #e7eef7; color: #0b4da2; border-radius: .8mm; padding: .2mm 1mm; font-size: 6.6pt; font-weight: 700; }
+
+  /* Print font metrics differ slightly from screen; a small uniform scale
+     guarantees the single page without hand-tuning every rule. */
+  @media print {
+    body { zoom: 0.93; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <h1>ZW MCP — Architecture &amp; the CLM API surface</h1>
+    <p class="sub">One MCP server exposing every Docusign product API to Claude Desktop, claude.ai, Claude Code and custom UIs.</p>
+  </div>
+  <div class="meta">
+    Woodward Systems · demo account<br>
+    84 tools · 12 product APIs<br>
+    Verified against live APIs 16 Sep 2026
+  </div>
+</div>
+
+<div class="cols">
+
+  <section>
+    <h2>1 · Shape of the system</h2>
+    <div class="flow">MCP client (Claude Desktop / claude.ai / your app)
+   │  streamable HTTP + bearer token
+   ▼
+ZW MCP  :8787   Node + TypeScript
+   │  JWT Grant → access token (cached, auto-refresh)
+   ├─► eSignature   demo.docusign.net/restapi
+   ├─► Navigator ─┐
+   ├─► Maestro    ├ api-d.docusign.com (IAM)
+   ├─► Workspaces ┘
+   ├─► CLM         *discovered per account*
+   └─► Rooms · Click · Admin · Web Forms · Notary …</div>
+    <p>One always-on service. Clients hold <b>only</b> a URL and a bearer token — no integration key, no JWT, no base URIs ever reach the client.</p>
+  </section>
+
+  <section>
+    <h2>2 · Authentication (one chain, all products)</h2>
+    <ul>
+      <li><b>JWT Grant with impersonation.</b> An RSA-signed assertion is exchanged for an access token acting <i>as</i> a named user. No interactive login, so it survives reboots unattended.</li>
+      <li><b>Consent is once per integration key.</b> The impersonated user must accept the scope set a single time.</li>
+      <li><b>Scopes are the trap.</b> One scope the account lacks fails the <i>entire</i> consent grant, and Docusign records a consent that silently omits it — so "I clicked Accept" is not proof. A per-scope prober isolates the offender.</li>
+    </ul>
+    <p>CLM needs <code>spring_read</code> + <code>spring_write</code> (<code>content</code> for upload/download).</p>
+  </section>
+
+  <section>
+    <h2>3 · Two-tier tool design</h2>
+    <p>Docusign has 1,000+ endpoints; one MCP tool each would drown any client's context window. So:</p>
+    <ul>
+      <li><b>Curated tools</b> — hand-written for what demos actually do, with trimmed responses and model-facing descriptions (<code>clm_search_documents</code>, <code>esign_create_envelope</code>).</li>
+      <li><b>One <code>&lt;product&gt;_raw_request</code> per API</b> — reaches every remaining endpoint with auth, base URI and <code>{accountId}</code> handled. Coverage is complete from day one; curation is an ergonomics layer, not a limit.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>4 · Why CLM needed its own client</h2>
+    <p>Eleven products fit one shared HTTP client. CLM (formerly SpringCM) does not, for two reasons:</p>
+    <ul>
+      <li><b>Hosts are data-centre specific and not knowable up front.</b> You discover them per account at runtime, and there are <b>four different hosts</b> — object, task, upload, download.</li>
+      <li><b>Paths carry the account id after the version:</b><br><code>https://{host}/{version}/{accountId}/{resource}</code></li>
+    </ul>
+    <div class="flow">GET https://authuat.springcm.com/api/v2/{accountId}/account
+  → ApiBaseUrl        apiuatna11.springcm.com
+    ApiBaseUploadUrl  apiuploaduatna11.springcm.com
+    ApiBaseDownloadUrl apidownloaduatna11.springcm.com
+    version           v2      (cached for process life)</div>
+    <p>The raw escape hatch routes through this same resolver — otherwise <code>clm_raw_request</code> would silently target the wrong URL.</p>
+  </section>
+
+  <section>
+    <h2>5 · CLM endpoints — verified live</h2>
+    <table>
+      <tr><th>Path <span class="mono">(after /{version}/{accountId})</span></th><th>Status</th><th>Returns here</th></tr>
+      <tr><td><code>/folders</code></td><td class="ok">OK</td><td>79 root folders</td></tr>
+      <tr><td><code>/workflows</code></td><td class="ok">OK</td><td>87 definitions</td></tr>
+      <tr><td><code>/attributegroups</code></td><td class="ok">OK</td><td>20 groups</td></tr>
+      <tr><td><code>/doclauncherconfigurations</code></td><td class="ok">OK</td><td>Doc Launcher configs</td></tr>
+      <tr><td><code>/documentsearchtasks</code></td><td class="ok">OK</td><td>async full-text search</td></tr>
+      <tr><td><code>/groups</code></td><td class="ok">OK</td><td>security groups</td></tr>
+      <tr><td><code>/documents/{id}</code></td><td class="ok">OK</td><td>doc + attributes</td></tr>
+      <tr><td><code>/documents</code> (collection) · <code>/users</code></td><td class="no">404</td><td>no list-all — search; users via Admin API</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>6 · The 13 curated CLM tools</h2>
+    <p><b>Process:</b> <code>list_workflow_definitions</code> · <code>launch_workflow</code> · <code>get_workflow_status</code><br>
+    <b>Metadata:</b> <code>get_attributes</code> · <code>set_attributes</code><br>
+    <b>Find:</b> <code>search_documents</code> · <code>list_folders</code> · <code>list_folder_documents</code><br>
+    <b>Content:</b> <code>get_document</code> · <code>download_document</code> · <code>upload_document</code> · <code>generate_document</code><br>
+    <b>Ops:</b> <code>account_info</code> (discovered hosts) · <code>raw_request</code> (everything else)</p>
+    <p>All prefixed <code>clm_</code>. Responses are trimmed before they reach the model; PDFs are written to disk and returned as a path rather than base64.</p>
+  </section>
+
+  <section>
+    <h2>7 · What CLM is actually for</h2>
+    <p>Navigator holds the agreement <i>record</i>; CLM holds the <i>files, their metadata and the processes around them</i>. The demo-worthy answers live in two places:</p>
+    <ul>
+      <li><b>Workflow definitions</b> — 87 here: contract intake routing, third-party paper with AI review and auto-redline from Ariba, amendment flows, clause capture, approval-before-signature. CLM as a process engine, not a file share.</li>
+      <li><b>Attribute groups</b> — <i>Procurement Routing Details</i> (Region, Category, Business Unit, Priority) and <i>CLM Agreement Details</i> (Agreement ID, Effective/Expiration Date). This is the structured contract data layer.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>8 · Field notes that cost real time</h2>
+    <div class="note"><b>Raw CLM paths start at the resource.</b> <code>clmRequest()</code> already prepends <code>/{version}/{accountId}</code>. Passing <code>/v2/{accountId}/doclauncherconfigurations</code> double-prefixes and 404s — which reads exactly like "not entitled". It is <code>/doclauncherconfigurations</code>.</div>
+    <div class="note"><b>"CLM API requires a production account"</b> appears on every CLM doc page. That is about <i>entitlement</i>, not environment — a CLM-provisioned UAT account works fine, as this one does. An early 401 here was a missing scope, nothing more.</div>
+    <div class="note"><b>Version is <code>v2</code>.</b> Discovery does not return one. <code>v20180601</code>, <code>v201411</code> and <code>v20160301</code> all 404.</div>
+    <div class="note"><b>Name search truncates silently.</b> <code>clm_search_documents</code> walks the folder tree under a visit cap; the repository is wide. Raise <code>max_folders</code> and surface <code>truncated: true</code> rather than reporting a partial result as complete.</div>
+  </section>
+
+  <section>
+    <h2>9 · How this was built</h2>
+    <p>Specification-first would have failed: the published docs are wrong or ambiguous on all four points above. Every base URI, scope and path here was established by <b>probing the live account and recording what came back</b> — negative results included, since those are what save the next person a day. Contradictions with the docs are recorded as dated comments at the point of use in the source.</p>
+    <p class="sub" style="margin:1.2mm 0 0">Built by Zach Woodward with AI pair-programming (Claude); correctness established by live-API verification, not by generation.</p>
+  </section>
+
+</div>
+
+<footer>
+  <span>ZW MCP · <span class="mono">~/dev/zw-mcp</span> · Node 20+ · TypeScript · MCP streamable HTTP</span>
+  <span>Internal reference — demo environment</span>
+</footer>
+
+</body>
+</html>

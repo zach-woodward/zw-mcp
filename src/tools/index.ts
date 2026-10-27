@@ -12,6 +12,7 @@ import { registerMonitorTools } from './monitor.js';
 import { registerNotaryTools } from './notary.js';
 import { registerConnectedFieldsTools } from './connectedfields.js';
 import { registerWorkspacesTools } from './workspaces.js';
+import { registerAgreementDeskTools } from './agreementdesk.js';
 import { registerRawTool } from './raw.js';
 
 /**
@@ -155,6 +156,16 @@ export const TOOL_MODULES: Partial<Record<ProductId, ToolModule>> = {
       'workspaces_list_envelopes',
       'workspaces_list_upload_requests',
       'workspaces_list_users',
+    ],
+  },
+
+  agreementdesk: {
+    register: registerAgreementDeskTools,
+    curated: [
+      'desk_list_requests',
+      'desk_list_request_types',
+      'desk_get_request',
+      'desk_get_request_notes',
     ],
   },
 

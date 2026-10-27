@@ -79,6 +79,12 @@ export const PRODUCT_SCOPES: Record<string, string[]> = {
   // UNVERIFIED: Trust Records appears in neither the scopes reference nor the
   // base-path table. Confirm in Phase 3 before enabling.
   trustrecords: ['signature'],
+
+  // Agreement Desk reaches its endpoints with the scopes already granted — the
+  // live response was a feature-level 403, not consent_required or 401, so no
+  // additional scope is needed. Mirrors Navigator's repo scope.
+  // VERIFIED 2026-10-27 against a live demo account.
+  agreementdesk: ['signature', 'adm_store_unified_repo_read'],
 };
 
 export const ALL_PRODUCTS = Object.keys(PRODUCT_SCOPES);

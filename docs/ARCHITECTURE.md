@@ -282,7 +282,7 @@ ZW MCP and every skin gets it. ZW MCP itself stays UI-free.
 
 ## 8. Per-product coverage
 
-**84 tools across 12 products.** Status as of Phase 4, verified against a live demo account. Base URIs and scopes are transcribed from the verified
+**89 tools across 13 products.** Status as of Phase 4, verified against a live demo account. Base URIs and scopes are transcribed from the verified
 tables in [`specs/BASE_PATHS.md`](../specs/BASE_PATHS.md).
 
 | API | Base URI (demo) | Scopes | Curated tools | Raw hatch | Spec source | Status |
@@ -299,6 +299,7 @@ tables in [`specs/BASE_PATHS.md`](../specs/BASE_PATHS.md).
 | Notary | `notary-d.docusign.net/restapi` | `notary_read/write` + `organization_read` + `signature` | 3 | ✅ | hand-built (no published spec) | GA -- **verified live (pool empty)** |
 | Connected Fields | `api-d.docusign.com/v1` | `adm_store_unified_repo_read` + `signature` | 1 | ✅ | vendored OpenAPI 3.1 | GA -- **verified live** |
 | Workspaces | `api-d.docusign.com/v1` | `dtr.rooms.*`, `dtr.documents.write` | 7 | ✅ | vendored OpenAPI 3.0 | beta -- **verified live** |
+| Agreement Desk | `api-d.docusign.com/v1` | `signature` + `adm_store_unified_repo_read` | 4 | OK | hand-built (undocumented) | **routes verified, account not entitled** |
 | ~~Trust Records~~ | — | — | 0 | — | none published | **Does not exist as a public API** (6 candidate paths 404, no docs). Off by default. |
 
 "Raw hatch ✅" means the product gets a `<product>_raw_request` tool as soon as it

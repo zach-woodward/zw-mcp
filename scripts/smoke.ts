@@ -53,6 +53,7 @@ const PROBES: Partial<Record<ProductId, Probe>> = {
     proves: 'tab groups',
   },
   workspaces: { path: '/v1/accounts/{accountId}/workspaces', proves: 'workspace list' },
+  agreementdesk: { path: '/v1/accounts/{accountId}/requests', proves: 'intake request list' },
 };
 
 function pad(s: string, n: number): string {

@@ -23,7 +23,8 @@ export type ProductId =
   | 'notary'
   | 'connectedfields'
   | 'workspaces'
-  | 'trustrecords';
+  | 'trustrecords'
+  | 'agreementdesk';
 
 export type SpecSource = 'openapi' | 'hand-built' | 'unverified';
 export type ProductStatus = 'ga' | 'beta' | 'unverified';
@@ -204,6 +205,38 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/workspaces-api/',
   },
+  /**
+   * Agreement Desk — the IAM intake surface where business users submit agreement
+   * requests and they get routed, tracked and discussed.
+   *
+   * Not documented anywhere in the Developer Center index (searching it returns
+   * nothing), and it has no published OpenAPI spec. The route surface below was
+   * established empirically.
+   *
+   * VERIFIED 2026-10-27 against a live demo account:
+   *   GET /v1/accounts/{accountId}/requests       -> 403 "The feature is disabled
+   *                                                  for this account."
+   *   GET /v1/accounts/{accountId}/request-types  -> 403 (same)
+   *
+   * A *feature-level* 403 rather than a 404 is the proof the routes exist and were
+   * evaluated — the same signal that settled Monitor's host. It also means the
+   * existing granted scopes are sufficient to reach it: this is an account
+   * entitlement gate, not a consent gate, so no new consent is required.
+   *
+   * Enablement is request-based (an internal form naming the account ID). Once
+   * granted, these tools should work with no code change — run `npm run smoke`.
+   */
+  agreementdesk: {
+    id: 'agreementdesk',
+    toolPrefix: 'desk',
+    label: 'Agreement Desk API',
+    baseUri: (env) => iamHost(env),
+    pathHint: '/v1/accounts/{accountId}/requests',
+    status: 'unverified',
+    specSource: 'hand-built',
+    docsUrl: 'https://developers.docusign.com/docs/',
+  },
+
   /**
    * NO SUCH PUBLIC API, as far as can be established.
    *

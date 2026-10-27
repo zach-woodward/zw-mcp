@@ -171,38 +171,80 @@ export function registerNavigatorTools(server: McpServer): void {
   server.registerTool(
     'nav_list_agreement_types',
     {
-      title: 'List agreement types and categories',
+      title: 'List agreement types',
       description:
-        'Show which agreement types (Msa, Sow, Nda, Amendment, ...) and categories exist on ' +
-        'this account, with a count of each. Navigator has no endpoint for this -- the counts ' +
-        'are aggregated over agreements -- so treat them as a sample of the most recent ' +
-        '`scan_limit` agreements, not an account-wide census. Call this first when you need ' +
-        'the exact type string for nav_search_agreements.',
+        'List every agreement type this account recognises (Msa, Sow, Nda, Amendment, ...) ' +
+        'with its category and the provisions Navigator extracts for that type. Call this ' +
+        'first when you need the exact type string for nav_search_agreements, or to know ' +
+        'which provisions are even available on a given kind of agreement.\n\n' +
+        'Set include_counts to also report how many agreements of each type exist, which ' +
+        'costs extra calls because it samples the repository.',
       inputSchema: {
+        include_counts: z
+          .boolean()
+          .default(false)
+          .describe('Also tally how many agreements of each type exist (slower).'),
         scan_limit: z
           .number()
           .int()
           .min(1)
           .max(500)
           .default(200)
-          .describe('How many agreements to aggregate over.'),
+          .describe('How many agreements to sample when include_counts is set.'),
+        verbose: z.boolean().default(false).describe('Return the full type definitions.'),
       },
     },
     guard(async (args) => {
-      const agreements = await fetchAgreements({}, args.scan_limit);
-      const tally = (key: string) => {
-        const counts = new Map<string, number>();
+      /*
+       * Uses the real /agreement-types endpoint.
+       *
+       * This tool previously aggregated `type` values over a page of agreements,
+       * because Navigator's own OpenAPI spec has no types endpoint. The sibling
+       * Agreement Manager spec does, and it works: 68 types with categories and
+       * per-type provision lists — strictly better than counting a sample, which
+       * could only ever report types that happened to appear in it.
+       * VERIFIED 2026-10-27 against a live demo account (200, 68 entries).
+       */
+      const res = await apiRequest<{ data?: Array<Record<string, unknown>> }>('navigator', {
+        method: 'GET',
+        path: '/v1/accounts/{accountId}/agreement-types',
+      });
+      const types = res.data ?? [];
+
+      let counts: Record<string, number> | undefined;
+      let scanned = 0;
+      if (args.include_counts) {
+        const agreements = await fetchAgreements({}, args.scan_limit);
+        scanned = agreements.length;
+        const tally = new Map<string, number>();
         for (const a of agreements) {
-          const v = String(a[key] ?? '(none)');
-          counts.set(v, (counts.get(v) ?? 0) + 1);
+          const k = String(a.type ?? '(none)');
+          tally.set(k, (tally.get(k) ?? 0) + 1);
         }
-        return Object.fromEntries([...counts].sort((x, y) => y[1] - x[1]));
-      };
+        counts = Object.fromEntries([...tally].sort((x, y) => y[1] - x[1]));
+      }
+
+      if (args.verbose) {
+        return ok({ total: types.length, types, ...(counts ? { scanned, counts } : {}) });
+      }
+
+      const byCategory = new Map<string, string[]>();
+      for (const t of types) {
+        const cat = String(t.category ?? 'Uncategorized');
+        if (!byCategory.has(cat)) byCategory.set(cat, []);
+        byCategory.get(cat)!.push(String(t.key ?? t.name));
+      }
+
       return ok({
-        scanned: agreements.length,
-        note: 'Counts are over the scanned sample, not the whole account.',
-        types: tally('type'),
-        categories: tally('category'),
+        total: types.length,
+        byCategory: Object.fromEntries([...byCategory].sort()),
+        types: types.map((t) => ({
+          ...pick(t, ['key', 'name', 'category'] as const),
+          provisionCount: ((t.provisions ?? []) as unknown[]).length,
+        })),
+        ...(counts
+          ? { note: `counts sampled over ${scanned} agreements`, counts }
+          : { note: 'Pass include_counts:true to also tally agreements per type.' }),
       });
     }),
   );

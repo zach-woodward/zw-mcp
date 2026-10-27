@@ -209,3 +209,52 @@ the endpoint but not its request schema, and the Developer Center does not
 publish it. `clm_search_documents` therefore does a NAME search over the folder
 tree using documented collection filtering, and says so in its description.
 Full-text search remains reachable via `clm_raw_request` once the schema is known.
+
+---
+
+## Agreement Desk (2026-10-27)
+
+**Undocumented.** Searching the Developer Center index for "Agreement Desk API"
+returns nothing, and there is no published OpenAPI spec. The surface below was
+established by probing a live account.
+
+VERIFIED 2026-10-27 against a live demo account, base `https://api-d.docusign.com`:
+
+| Path | Response | Reading |
+| --- | --- | --- |
+| `GET /v1/accounts/{accountId}/requests` | `403 "The feature is disabled for this account."` | **Route exists**, evaluated, feature-gated |
+| `GET /v1/accounts/{accountId}/request-types` | `403` same | **Route exists** |
+| `GET /v1/accounts/{accountId}/agreement-requests` | 404 | no such route |
+| `/agreement-desk`, `/desk`, `/tasks`, `/workitems`, `/notes`, `/intake`, `/aow/requests` | 404 | no such route |
+
+A **feature-level 403 rather than a 404** is the proof: the request routed, the
+service recognised the account, and a permission was evaluated. Same signal that
+settled Monitor's host.
+
+**It is an entitlement gate, not a consent gate.** The response was 403, not
+`consent_required` or 401, so the already-granted scopes suffice. Enabling it
+requires an internal request naming the account ID; no code or consent change is
+needed afterwards.
+
+### Sub-resources are NOT yet mapped
+
+Probing `/requests/{placeholder-guid}/notes` and the same for `/tasks`,
+`/comments`, `/documents`, `/participants`, `/activity`, `/attachments` all
+returned 404. On a feature-disabled account with a non-existent ID that is
+**ambiguous** -- it cannot distinguish "no such route" from "no such request". So
+this is NOT evidence that notes do not exist. `desk_get_request_notes` ships as a
+documented best guess and says so in its own description; confirm against a real
+request ID once entitled.
+
+## Agreement types -- a real endpoint exists
+
+VERIFIED 2026-10-27: `GET /v1/accounts/{accountId}/agreement-types` returns
+**200 with 68 types**, each with `key`, `name`, `description`, `category`,
+`provisions[]` and `custom_provisions[]`.
+
+It is in `agreementmanager.rest.swagger-1.0.0.json`, Navigator's sibling spec,
+and NOT in `navigator.rest.swagger.json` -- which is why
+`nav_list_agreement_types` originally aggregated `type` values over a page of
+agreements. That aggregation could only ever report types which happened to
+appear in the sample; the real endpoint reports all 68 plus their provision
+schemas. Now fixed.
