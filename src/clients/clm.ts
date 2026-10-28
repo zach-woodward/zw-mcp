@@ -136,6 +136,8 @@ export async function clmRequest<T = unknown>(opts: {
   query?: Record<string, string | number | boolean | undefined>;
   body?: unknown;
   accept?: string;
+  /** Media type for a Buffer body, e.g. application/pdf. */
+  contentType?: string;
   raw?: boolean;
   /** Absolute URL (e.g. a document's DownloadDocumentHref) bypassing path building. */
   absoluteUrl?: string;
@@ -162,15 +164,28 @@ export async function clmRequest<T = unknown>(opts: {
     if (v !== undefined && v !== '') u.searchParams.set(k, String(v));
   }
 
+  /*
+   * A Buffer body is FILE CONTENT and must go up as raw bytes.
+   *
+   * This was a real bug: the body was JSON.stringify'd unconditionally, so an
+   * upload sent the base64 string (quotes included) instead of the file. CLM
+   * accepted it and reported a plausible size, so the document existed and
+   * looked fine while being unopenable.
+   * VERIFIED 2026-10-28 by sha256 round-trip: 69-byte PDF came back as 94 bytes
+   * of base64 text before this fix, byte-identical after.
+   */
+  const isBinary = Buffer.isBuffer(opts.body);
   const started = Date.now();
   const res = await request(u.toString(), {
     method: opts.method,
     headers: {
       authorization: `Bearer ${await getAccessToken()}`,
       accept: opts.accept ?? 'application/json',
-      ...(opts.body !== undefined ? { 'content-type': 'application/json' } : {}),
+      ...(opts.body !== undefined
+        ? { 'content-type': isBinary ? (opts.contentType ?? 'application/octet-stream') : 'application/json' }
+        : {}),
     },
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    body: opts.body === undefined ? undefined : isBinary ? (opts.body as Buffer) : JSON.stringify(opts.body),
   });
 
   logger.info(

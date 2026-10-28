@@ -254,15 +254,29 @@ export function registerClmTools(server: McpServer): void {
       const abs = path.resolve(args.file_path);
       if (!fs.existsSync(abs)) throw new Error(`file not found: ${abs}`);
       const content = fs.readFileSync(abs);
-      return ok(
-        await clmRequest({
-          surface: 'upload',
-          method: 'POST',
-          path: `/folders/${args.folder_id}/documents`,
-          query: { name: args.name },
-          body: content.toString('base64'),
-        }),
-      );
+      // Raw bytes, not base64 — see the Buffer handling in clients/clm.ts.
+      const ext = path.extname(args.name).toLowerCase();
+      const contentType =
+        ext === '.pdf' ? 'application/pdf'
+        : ext === '.docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        : ext === '.doc' ? 'application/msword'
+        : ext === '.txt' ? 'text/plain'
+        : 'application/octet-stream';
+      const res = await clmRequest<Record<string, unknown>>({
+        surface: 'upload',
+        method: 'POST',
+        path: `/folders/${args.folder_id}/documents`,
+        query: { name: args.name },
+        body: content,
+        contentType,
+      });
+      return ok({
+        documentId: idFromHref(res),
+        name: res.Name,
+        bytesUploaded: content.length,
+        reportedSize: res.NativeFileSize,
+        folderId: args.folder_id,
+      });
     }),
   );
 
