@@ -420,16 +420,29 @@ export function registerClmTools(server: McpServer): void {
       description:
         'List the CLM workflows available to start, with their names. clm_launch_workflow ' +
         'starts a workflow BY NAME, so call this first to get the exact name string.',
-      inputSchema: { verbose: z.boolean().default(false) },
+      inputSchema: {
+        // CLM's default page is 20, and this account has 91 definitions, so the
+        // one a caller wants is routinely not on page one. VERIFIED 2026-10-28:
+        // the 3PP Review definition sits outside the first 20.
+        limit: z.number().int().min(1).max(500).default(200),
+        name_contains: z.string().optional().describe('Case-insensitive filter on the name.'),
+        verbose: z.boolean().default(false),
+      },
     },
     guard(async (args) => {
       const res = await clmRequest<ClmCollection>({
         method: 'GET',
         path: '/workflowdefinitions',
+        query: { 'pageSortParams.limit': args.limit },
       });
-      const items = res.Items ?? [];
+      const all = res.Items ?? [];
+      const needle = args.name_contains?.toLowerCase();
+      const items = needle
+        ? all.filter((w) => String(w.Name ?? '').toLowerCase().includes(needle))
+        : all;
       return ok({
-        total: res.Total ?? items.length,
+        total: res.Total ?? all.length,
+        returned: items.length,
         workflows: args.verbose
           ? items
           : items.map((w) => ({ id: idFromHref(w), ...pick(w, ['Name', 'Href'] as const) })),
@@ -451,21 +464,43 @@ export function registerClmTools(server: McpServer): void {
         document_ids: z.array(z.string()).optional(),
       },
     },
-    guard(async (args) =>
-      ok(
-        await clmRequest({
-          method: 'POST',
-          path: '/workflows',
-          body: {
-            Name: args.workflow_name,
-            Params: args.params,
-            ...(args.document_ids?.length
-              ? { WorkflowDocuments: args.document_ids.map((Id) => ({ Id })) }
-              : {}),
-          },
-        }),
-      ),
-    ),
+    guard(async (args) => {
+      /*
+       * Params and documents, VERIFIED 2026-10-28 against the demo account:
+       *
+       *  - A `Params` key makes CLM reject the entire request with 400 "No input
+       *    provided or input cannot be parsed" (ErrorCode 100) -- an EMPTY object
+       *    included. Because params defaulted to {}, every launch through this
+       *    tool failed. It is now sent only when the caller supplies parameters.
+       *  - Documents go up as WorkflowDocuments: [{ Href }] against the
+       *    discovered account base. {Id} is accepted too, but CLM hands back
+       *    Hrefs everywhere else, so Href is the consistent choice.
+       */
+      const { objectApi, version, clmAccountId } = await getClmEndpoints();
+      const docBase = `${objectApi}/${version}/${clmAccountId}/documents`;
+      const hasParams = args.params && Object.keys(args.params).length > 0;
+
+      const res = await clmRequest<Record<string, unknown>>({
+        surface: 'task',
+        method: 'POST',
+        path: '/workflows',
+        body: {
+          Name: args.workflow_name,
+          ...(hasParams ? { Params: args.params } : {}),
+          ...(args.document_ids?.length
+            ? { WorkflowDocuments: args.document_ids.map((id) => ({ Href: `${docBase}/${id}` })) }
+            : {}),
+        },
+      });
+      return ok({
+        instanceId: res.Id,
+        uid: idFromHref(res),
+        name: res.Name,
+        status: res.Status,
+        startDate: res.StartDate,
+        documentsAttached: args.document_ids?.length ?? 0,
+      });
+    }),
   );
 
   server.registerTool(
