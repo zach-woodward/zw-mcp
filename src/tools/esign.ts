@@ -316,14 +316,40 @@ export function registerEsignTools(server: McpServer): void {
       inputSchema: { template_id: z.string(), verbose: z.boolean().default(false) },
     },
     guard(async (args) => {
+      /*
+       * `include` is required or the response omits tabs entirely. VERIFIED
+       * 2026-10-29: without it, a template whose signer has signHere, fullName,
+       * dateSigned and company tabs reports no tabs at all -- which reads as
+       * "this template has no signature fields", the opposite of the truth and
+       * exactly the kind of answer someone acts on.
+       */
       const t = await apiRequest<Record<string, unknown>>('esign', {
         method: 'GET',
         path: `${ACCT}/templates/${args.template_id}`,
+        query: { include: 'recipients,tabs,documents' },
       });
       if (args.verbose) return ok(t);
+
+      const signers = ((t.recipients as Record<string, unknown> | undefined)?.signers ??
+        []) as Array<Record<string, unknown>>;
+      const fieldCounts = (r: Record<string, unknown>) => {
+        const tabs = (r.tabs ?? {}) as Record<string, unknown>;
+        const out: Record<string, number> = {};
+        for (const [k, v] of Object.entries(tabs)) {
+          if (Array.isArray(v) && v.length) out[k.replace(/Tabs$/, '')] = v.length;
+        }
+        return out;
+      };
+
       return ok({
         ...pick(t, ['templateId', 'name', 'description', 'emailSubject', 'shared'] as const),
         roles: flattenRecipients((t.recipients ?? {}) as RecipientsResponse),
+        // Whether each role can actually sign, and what it is asked to fill in.
+        signerFields: signers.map((r) => ({
+          roleName: r.roleName,
+          routingOrder: r.routingOrder,
+          fields: fieldCounts(r),
+        })),
         documents: ((t.documents as Array<Record<string, unknown>>) ?? []).map((d) =>
           pick(d, ['documentId', 'name', 'order'] as const),
         ),
