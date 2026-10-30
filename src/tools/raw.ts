@@ -110,3 +110,82 @@ export async function describeProducts(products: ProductId[]) {
     })),
   );
 }
+
+/*
+ * Reachability, which is NOT the same question as "does this API exist".
+ *
+ * Everything in the registry exists; whether this account may call it is a
+ * per-account entitlement question, and the answer differs per product. Saying
+ * "connected" because a product is configured is how a demo ends up claiming an
+ * API it cannot actually reach, so this probes each one with a cheap read and
+ * reports what came back, including the service's own words on a refusal.
+ */
+export type ProductReachability = {
+  id: ProductId;
+  label: string;
+  /** live: a real 2xx. denied: routed and refused. missing: no such endpoint.
+   *  unprobed: no safe cheap read defined. error: could not even try. */
+  state: 'live' | 'denied' | 'missing' | 'unprobed' | 'error';
+  httpStatus: number | null;
+  /** The service's own message on a refusal, trimmed. Never invented. */
+  detail: string | null;
+  checkedAt: string;
+};
+
+let reachabilityCache: { at: number; rows: ProductReachability[] } | null = null;
+const REACHABILITY_TTL_MS = 5 * 60 * 1000;
+
+export async function probeProducts(
+  products: ProductId[],
+  { force = false }: { force?: boolean } = {},
+): Promise<ProductReachability[]> {
+  if (!force && reachabilityCache && Date.now() - reachabilityCache.at < REACHABILITY_TTL_MS) {
+    return reachabilityCache.rows;
+  }
+
+  const rows = await Promise.all(
+    products.map(async (id): Promise<ProductReachability> => {
+      const spec = PRODUCTS[id];
+      const checkedAt = new Date().toISOString();
+      // CLM never goes through the shared client: its host is discovered at
+      // runtime per data centre, so it is probed through its own client.
+      if (id === 'clm') {
+        try {
+          await clmRequest({ method: 'GET', path: '/folders/type', query: { systemFolder: 'root' } });
+          return { id, label: spec.label, state: 'live', httpStatus: 200, detail: null, checkedAt };
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          const code = /\b(\d{3})\b/.exec(msg)?.[1];
+          return {
+            id, label: spec.label,
+            state: code === '403' || code === '401' ? 'denied' : code === '404' ? 'missing' : 'error',
+            httpStatus: code ? Number(code) : null, detail: msg.slice(0, 180), checkedAt,
+          };
+        }
+      }
+      if (!spec.probe) {
+        return { id, label: spec.label, state: 'unprobed', httpStatus: null, detail: null, checkedAt };
+      }
+      try {
+        await apiRequest(id, { method: 'GET', path: spec.probe.path, query: spec.probe.query });
+        return { id, label: spec.label, state: 'live', httpStatus: 200, detail: null, checkedAt };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const code = /\b(\d{3})\b/.exec(msg)?.[1];
+        const httpStatus = code ? Number(code) : null;
+        // Quote the service rather than paraphrasing it: "feature is disabled for
+        // this account" and "not entitled" are different answers and both matter.
+        const quoted = /"(?:message|errorMessage|UserMessage|DeveloperMessage)"\s*:\s*"([^"]{0,180})"/.exec(msg)?.[1]
+          ?? msg.slice(0, 180);
+        const state: ProductReachability['state'] =
+          httpStatus === 403 || httpStatus === 401 ? 'denied'
+          : httpStatus === 404 ? 'missing'
+          : 'error';
+        return { id, label: spec.label, state, httpStatus, detail: quoted, checkedAt };
+      }
+    }),
+  );
+
+  reachabilityCache = { at: Date.now(), rows };
+  return rows;
+}

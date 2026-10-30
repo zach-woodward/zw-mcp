@@ -44,6 +44,14 @@ export interface ProductSpec {
   status: ProductStatus;
   specSource: SpecSource;
   docsUrl: string;
+  /**
+   * A cheap, read-only request that proves whether this account can actually
+   * reach the product. Presence in this registry says only that the API exists;
+   * it says nothing about entitlement, which is a per-account question and the
+   * thing people actually need to know. Omit for products with no safe cheap
+   * read, and they will report as unprobed rather than as working.
+   */
+  probe?: { path: string; query?: Record<string, string | number> };
 }
 
 /** api.docusign.com hosts the newer "IAM" APIs: Navigator, Maestro, Workspaces, Connected Fields. */
@@ -62,6 +70,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'ga',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/esign-rest-api/',
+    probe: { path: '/v2.1/accounts/{accountId}' },
   },
   navigator: {
     id: 'navigator',
@@ -72,6 +81,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'beta',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/navigator-api/',
+    probe: { path: '/v1/accounts/{accountId}/agreements', query: { limit: 1 } },
   },
   clm: {
     id: 'clm',
@@ -100,6 +110,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'beta',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/maestro-api/',
+    probe: { path: '/v1/accounts/{accountId}/workflows' },
   },
   webforms: {
     id: 'webforms',
@@ -113,6 +124,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'ga',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/web-forms-api/',
+    probe: { path: '/v1.1/accounts/{accountId}/forms', query: { limit: 1 } },
   },
   rooms: {
     id: 'rooms',
@@ -126,6 +138,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'ga',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/rooms-api/',
+    probe: { path: '/v2/accounts/{accountId}/rooms', query: { count: 1 } },
   },
   click: {
     id: 'click',
@@ -139,6 +152,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'ga',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/click-api/',
+    probe: { path: '/v1/accounts/{accountId}/clickwraps' },
   },
   admin: {
     id: 'admin',
@@ -152,6 +166,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'ga',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/admin-api/',
+    probe: { path: '/v2/organizations' },
   },
   monitor: {
     id: 'monitor',
@@ -169,6 +184,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'ga',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/monitor-api/',
+    probe: { path: '/v1/organizations/{organizationId}/stream', query: { limit: 1 } },
   },
   notary: {
     id: 'notary',
@@ -184,6 +200,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'ga',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/notary-api/',
+    probe: { path: '/v1.0/accounts/{accountId}/notaries' },
   },
   connectedfields: {
     id: 'connectedfields',
@@ -194,6 +211,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'ga',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/connected-fields-api/',
+    probe: { path: '/v1/accounts/{accountId}/connected-fields/tab-groups' },
   },
   workspaces: {
     id: 'workspaces',
@@ -204,6 +222,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'beta',
     specSource: 'openapi',
     docsUrl: 'https://developers.docusign.com/docs/workspaces-api/',
+    probe: { path: '/v1/accounts/{accountId}/workspaces' },
   },
   /**
    * Agreement Desk — the IAM intake surface where business users submit agreement
@@ -235,6 +254,7 @@ export const PRODUCTS: Record<ProductId, ProductSpec> = {
     status: 'unverified',
     specSource: 'hand-built',
     docsUrl: 'https://developers.docusign.com/docs/',
+    probe: { path: '/v1/accounts/{accountId}/request-types' },
   },
 
   /**

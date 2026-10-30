@@ -5,7 +5,7 @@ import { buildServer, SERVER_NAME, SERVER_VERSION } from './server.js';
 import { loadConfig } from './lib/config.js';
 import { logger } from './lib/logger.js';
 import { consentUrl, ConsentRequiredError, getAccount, getAccessToken, tokenStatus } from './auth/jwt.js';
-import { describeProducts } from './tools/raw.js';
+import { describeProducts, probeProducts } from './tools/raw.js';
 import {
   canonicalResource,
   createAuthCode,
@@ -134,6 +134,26 @@ async function main(): Promise<void> {
       products: await describeProducts(cfg.products as ProductId[]),
       authError,
     });
+  });
+
+  /*
+   * Reachability, kept separate from /health because it makes a real request per
+   * product and so is slower, and cached for that reason.
+   *
+   * /health answers "is this server up". This answers the different and more
+   * honest question: which of these APIs can this account actually call. A UI
+   * that labels everything "connected" because it is configured will sooner or
+   * later claim an API that returns 403 the moment someone tries it.
+   */
+  app.get('/reachability', async (req: Request, res: Response) => {
+    try {
+      res.json({
+        environment: cfg.DS_ENVIRONMENT,
+        products: await probeProducts(cfg.products as ProductId[], { force: req.query.force === '1' }),
+      });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
   });
 
   // ---------------------------------------------------------------------------
